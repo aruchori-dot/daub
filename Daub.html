@@ -1,0 +1,3001 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gochi+Hand&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Covered+By+Your+Grace&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: one ruled notebook page. the game runs on its lines, and every menu is written on the same lines.
+     two hands write on it: the player's blue pen and a teacher's red pen */
+  --paper: #fbfcfe;
+  --rule: #b3cbe9;
+  --margin: #e2667a;
+  --ink: #2440b6;
+  --pencil: #4a4c56;
+  --red: #d22f41;
+  --green: #15875a;
+  --star: #ffd73a;
+  --hole: #1c1d24;
+  --gold: #c99400;
+  --w1: #2440b6; --w2: #15875a; --w3: #7b3fc4;
+  --hover: #eef2fc; --veil: rgba(251, 252, 254, 0.93); --next-hover: #1b3193; --on-world: #fbfcfe;
+  --font-hand: "Gochi Hand", "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Segoe Print", cursive;
+  --font-teacher: "Covered By Your Grace", "Gochi Hand", "Segoe Script", "Bradley Hand", cursive;
+  --line: 44px;
+  --gutter: 64px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --paper: #0b0c12; --rule: #1d2f4a; --margin: #ff2d78; --ink: #3ee8ff; --pencil: #d6dbf2;
+  --red: #ff3b5c; --green: #39ff88; --star: #ffe14a; --hole: #000000; --gold: #ffe14a;
+  --w1: #3ee8ff; --w2: #39ff88; --w3: #b86bff;
+  --hover: #161b28; --veil: rgba(11, 12, 18, 0.93); --next-hover: #22b8cc; --on-world: #0b0c12;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--paper); color: var(--pencil);
+  font-family: var(--font-hand); font-size: 19px;
+  overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+[hidden] { display: none !important; }
+#stage { position: relative; height: 100%; overflow: hidden; touch-action: none; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+button, label { font: inherit; color: inherit; cursor: pointer; }
+button { background: none; border: 0; padding: 0; margin: 0; }
+:focus-visible { outline: 2px dashed var(--ink); outline-offset: 3px; }
+
+/* ---- heads-up line while playing ---- */
+#hud {
+  position: absolute; top: 0; inset-inline: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 16px; pointer-events: none; font-size: 25px; line-height: 1.2;
+}
+#hud-name { color: var(--ink); }
+[data-theme="dark"] h1, [data-theme="dark"] #hud-name, [data-theme="dark"] .level, [data-theme="dark"] .grade, [data-theme="dark"] #hud-deaths { text-shadow: 0 0 8px currentColor; }
+[data-theme="dark"] #game { filter: drop-shadow(0 0 2px rgba(120, 230, 255, 0.35)); }
+#hud .end { display: flex; align-items: center; gap: 16px; }
+#hud-stars { color: var(--gold); font-family: sans-serif; font-size: 20px; letter-spacing: 2px; }
+#hud-deaths { color: var(--red); font-family: var(--font-teacher); font-size: 27px; font-variant-numeric: tabular-nums; }
+#btn-menu { pointer-events: auto; min-height: 40px; padding: 2px 14px; }
+
+.pen-box {
+  border: 2px solid currentColor; color: var(--ink); background: var(--paper);
+  border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
+  font-family: var(--font-hand); font-size: 24px; line-height: 1.2;
+}
+.pen-box:hover { background: var(--hover); }
+.pen-box:active { transform: translateY(1px); }
+
+/* ---- the first page ---- */
+#menu { position: absolute; inset: 0; overflow-y: auto; touch-action: pan-y; background: var(--paper); }
+.sheet {
+  position: relative; min-height: 100%;
+  padding: var(--line) 20px var(--line) calc(var(--gutter) + 18px);
+  background-image: linear-gradient(to bottom, transparent calc(var(--line) - 1.5px), var(--rule) calc(var(--line) - 1.5px));
+  background-size: 100% var(--line);
+}
+.sheet::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: var(--gutter); width: 6px;
+  border-inline: 1.5px solid var(--margin);
+}
+.sheet > * { max-width: 520px; }
+h1 {
+  margin: 0; font-weight: 400; color: var(--ink); white-space: nowrap; width: fit-content;
+  font-size: 74px; line-height: calc(var(--line) * 2); height: calc(var(--line) * 2);
+}
+h1 svg { display: block; width: 0; min-width: 100%; height: 14px; margin-top: -20px; overflow: visible; }
+.how { margin: 0; line-height: var(--line); text-wrap: balance; }
+#levels { list-style: none; margin: var(--line) 0 0; padding: 0; display: flex; flex-wrap: wrap; column-gap: 10px; }
+#levels li { display: flex; flex-direction: column; align-items: center; width: 52px; height: calc(var(--line) * 2); }
+#worlds { list-style: none; margin: var(--line) 0 0; padding: 0; display: flex; gap: clamp(8px, 2.4vw, 14px); }
+#worlds li { flex: 1 1 0; max-width: 176px; min-width: 0; }
+.world {
+  position: relative; width: 100%; aspect-ratio: 7 / 10; height: auto; padding: 10px 8px; text-align: start;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+  border: 2.4px solid var(--wc); color: var(--on-world); background: var(--wc);
+  border-radius: 6px 14px 8px 12px / 12px 6px 14px 8px; box-shadow: 0 0 12px -2px var(--wc), inset 0 0 18px -8px var(--wc);
+}
+#worlds li:nth-child(2n) .world { transform: rotate(1.2deg); }
+.world.w1 { --wc: var(--w1); } .world.w2 { --wc: var(--w2); } .world.w3 { --wc: var(--w3); }
+.world::before { content: ''; position: absolute; left: 22px; top: 0; bottom: 0; border-left: 2px solid var(--on-world); opacity: 0.45; }
+.wn { position: absolute; top: 6px; right: 12px; font-size: 60px; line-height: 1; }
+.wt { font-size: 21px; line-height: 1.05; padding-inline-start: 18px; }
+.wp { font-family: var(--font-teacher); font-size: clamp(13px, 3.8vw, 18px); line-height: 1.1; white-space: nowrap; color: var(--on-world); padding-inline-start: clamp(12px, 3.6vw, 18px); }
+.world.locked { opacity: 0.4; cursor: default; box-shadow: none; }
+.world:not(.locked):active { transform: translateY(1px); }
+#menu-back { margin-inline-end: 10px; }
+#btn-skins { margin-inline-start: 8px; }
+#skins h3 { margin: 6px 0 0; font-weight: 400; font-size: 26px; color: var(--ink); line-height: var(--line); }
+#skin-big { display: block; width: 120px; height: 120px; margin-top: 4px; }
+.skin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.skin { width: 86px; height: 96px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: 2px solid var(--rule); border-radius: 10px 6px 12px 7px; background: var(--paper); color: var(--pencil); }
+.skin.on { border-color: var(--ink); box-shadow: 0 0 10px -2px var(--ink); }
+.skin.locked { opacity: 0.45; cursor: default; }
+.skin-cv { width: 56px; height: 56px; }
+.skin-nm { font-size: 16px; line-height: 1.05; text-align: center; }
+.skin.locked .skin-nm { font-family: var(--font-teacher); color: var(--red); }
+#done-stars { margin: 0; font-size: 40px; line-height: 1; color: var(--gold); letter-spacing: 4px; }
+#done-new { color: var(--green); font-size: 22px; min-height: 0; }
+#done-new:empty { display: none; }
+.level {
+  width: 52px; height: 52px; margin-top: 4px;
+  border: 2.2px solid var(--ink); border-radius: 52% 46% 54% 47% / 47% 54% 46% 53%;
+  font-size: 34px; line-height: 1; color: var(--ink); background: var(--paper);
+}
+#levels li:nth-child(even) .level { border-radius: 46% 54% 47% 52% / 54% 46% 53% 47%; transform: rotate(-3deg); }
+.level.boss + .mark.lbl { font-family: var(--font-teacher); font-size: 20px; color: var(--red); }
+.level.boss { display: inline-flex; align-items: center; justify-content: center; border-color: var(--red); color: var(--red); box-shadow: 0 0 12px -2px var(--red); }
+.level:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.level:hover { background: var(--hover); }
+.level:active { transform: translateY(1px); }
+.mark {
+  height: 28px; line-height: 28px; white-space: nowrap;
+  font-family: var(--font-teacher); font-size: 21px; color: var(--gold); letter-spacing: 1px; font-family: sans-serif; font-size: 17px; transform: rotate(-4deg);
+}
+.blot { display: inline-block; width: 9px; height: 8px; margin-inline-start: 3px; background: var(--ink); border-radius: 55% 45% 50% 60%; }
+.foot { margin: var(--line) 0 0; line-height: var(--line); display: flex; flex-wrap: wrap; column-gap: 22px; align-items: center; }
+.foot label { display: inline-flex; align-items: center; gap: 8px; font-size: 24px; color: var(--ink); min-height: 40px; }
+.foot input { width: 20px; height: 20px; accent-color: var(--ink); margin: 0; }
+.note { line-height: var(--line); font-size: 17px; }
+
+/* ---- the teacher's note after a level ---- */
+#done {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+  background: var(--veil); overflow-y: auto; touch-action: pan-y;
+}
+.grade { width: min(400px, 100%); transform: rotate(-2deg); color: var(--red); font-family: var(--font-teacher); }
+.grade h2 { margin: 0; font-weight: 400; font-size: 66px; line-height: 1.05; text-wrap: balance; }
+.grade h2 svg { width: 62px; height: 62px; vertical-align: -12px; margin-inline-end: 8px; overflow: visible; }
+.grade p { margin: 4px 0 0; font-size: 30px; line-height: 1.25; }
+#done-name { color: var(--pencil); font-family: var(--font-hand); font-size: 26px; }
+#done-stats { font-variant-numeric: tabular-nums; }
+.grade .row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.grade .row button { min-height: 46px; padding: 4px 18px; }
+#btn-next { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+#btn-next:hover { background: var(--next-hover); }
+
+@media (max-width: 440px) { :root { --gutter: 40px; } }
+@media (max-height: 430px) {
+  :root { --line: 38px; }
+  .sheet { padding-top: 0; padding-bottom: 0; }
+  h1 { font-size: 56px; }
+  #levels, .foot { margin-top: 0; }
+  .grade h2 { font-size: 50px; }
+  .grade .row { margin-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .pen-box:active, .level:active { transform: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" aria-label="A notebook page with an obstacle course. Tap anywhere to jump."></canvas>
+
+  <div id="hud" hidden>
+    <span id="hud-name"></span>
+    <span class="end">
+      <span id="hud-stars" hidden></span>
+      <span id="hud-deaths"></span>
+      <button type="button" id="btn-menu" class="pen-box">Levels</button>
+    </span>
+  </div>
+
+  <main id="menu">
+    <div class="sheet">
+      <h1>Daub
+        <svg viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true"><path d="M3 8 C 40 2, 62 13, 104 7 S 180 2, 220 8 S 276 10, 297 5" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+      </h1>
+      <p class="how"><button type="button" id="menu-back" class="pen-box" hidden>&larr; Worlds</button> <span id="menu-sub"></span> <button type="button" id="btn-skins" class="pen-box">Doodle</button> <button type="button" id="btn-endless" class="pen-box">Endless</button></p>
+      <ol id="worlds"></ol>
+      <ol id="levels" hidden></ol>
+      <div id="skins" hidden>
+        <canvas id="skin-big" aria-hidden="true"></canvas>
+        <h3>Hats</h3><ol id="hats" class="skin-list"></ol>
+        <h3>Pens</h3><ol id="pens" class="skin-list"></ol>
+      </div>
+      <p class="foot">
+        <label for="sound"><input type="checkbox" id="sound" checked> Sound</label>
+        <label for="music"><input type="checkbox" id="music" checked> Music</label>
+        <label for="dark"><input type="checkbox" id="dark"> Dark mode</label>
+        <span class="note">On a computer: Space to jump.<br>Tip: turn your phone sideways to see what's coming.</span>
+      </p>
+    </div>
+  </main>
+
+  <section id="done" hidden>
+    <div class="grade">
+      <h2><svg viewBox="0 0 62 62" aria-hidden="true"><path d="M31 5 C 12 4, 4 18, 6 33 S 22 59, 37 56 S 60 40, 56 24 S 42 3, 24 7" fill="none" stroke="var(--red)" stroke-width="2.6" stroke-linecap="round"/><path d="M19 32 L 28 42 L 45 19" fill="none" stroke="var(--red)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="done-title">Passed!</span></h2>
+      <p id="done-name"></p>
+      <p id="done-stars"></p>
+      <p id="done-stats"></p>
+      <p id="done-new"></p>
+      <div class="row">
+        <button type="button" id="btn-next" class="pen-box">Next level</button>
+        <button type="button" id="btn-again" class="pen-box">Again</button>
+        <button type="button" id="btn-list" class="pen-box">Levels</button>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+/* Engine: deterministic fixed-step physics. No DOM. Works in browser (window.Engine) and Node.
+
+   Map characters
+   # solid            ^ floor spikes       v ceiling spikes
+   S spring           L low launcher (folded corner)
+   ) (  wall bouncers            a-e teleport in -> A-E out
+   U flip gravity up  N flip gravity back down
+   O jump ring (tap while touching it)
+   = pencil line: a thin platform that erases shortly after you land on it
+   u glue (only a low jump from it)
+   * a star to collect (three in a level; they count only in the run that reaches the finish)
+   + speed pad (run over it for a short burst of speed)
+   > <  one-way gates (the arrow shows the only direction that may pass)
+   k button -> erases g tiles        q button -> erases r tiles
+   R moving ruler     K compass      J scissors     M stapler      (settings in def.params, in left-to-right order)
+   ! ink drip (boss 3)
+   H two of them mark opposite corners of a highlighter zone (weak gravity inside)
+   P start   F finish   1-9 text anchors
+   Trap twins, same look and behaviour, used only by the tests: T spring, I launcher, ] [ bouncers, w-z teleports, V flip, Q ring */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Engine = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  var T = 40;
+  var CFG = {
+    dt: 1 / 120,
+    speed: 300,
+    gravity: 2300,
+    fallMult: 1.15,
+    maxFall: 900,
+    jumpV: 750,
+    cutV: 300,
+    springV: 1060,
+    launchV: 800,
+    bounceV: 780,
+    glueV: 430,
+    boostMult: 1.5, boostT: 132,
+    zoneG: 0.45,
+    coyote: 0.08,
+    buffer: 0.1,
+    pw: 22,
+    ph: 34,
+    padW: 10,
+    stepUp: 8,
+    headNudge: 6,
+    vanish: 42,      // ticks a pencil line survives after the first touch
+    plankH: 8
+  };
+
+  var TELE_IN = 'abcdewxyz';
+  var ARM_AT = [0.35, 0.58, 0.8, 1];
+
+  function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+  function lcm(a, b) { return a / gcd(a, b) * b; }
+  function tri(u) { return (1 - Math.cos(2 * Math.PI * u)) / 2; }
+
+  function parseLevel(def) {
+    var rows = def.map.slice();
+    var w = 0, i, r, c, ch;
+    for (i = 0; i < rows.length; i++) w = Math.max(w, rows[i].length);
+    for (i = 0; i < rows.length; i++) while (rows[i].length < w) rows[i] += ' ';
+    var L = {
+      id: def.id, texts: def.texts || {}, needs: def.needs || [],
+      rows: rows, w: w, h: rows.length,
+      start: { c: 1, r: 1 }, finish: null,
+      spikes: [], springs: [], bouncers: [], teleIn: [], teleOut: {}, exits: [], labels: [],
+      flips: [], rings: [], glue: [], pads: [], stars: [], starAt: {}, gates: [], buttons: [], doors: [],
+      plats: [], arms: [], staplers: [], zones: [], period: 1, timed: false
+    };
+    var marks = { R: [], K: [], J: [], M: [], H: [], '!': [] };
+    for (r = 0; r < L.h; r++) {
+      for (c = 0; c < w; c++) {
+        ch = rows[r][c];
+        if (ch === ' ' || ch === '#') continue;
+        if (ch >= '0' && ch <= '9') L.labels.push({ c: c, r: r, k: ch });
+        else if (ch === 'P') L.start = { c: c, r: r };
+        else if (ch === 'F') L.finish = { c: c, r: r };
+        else if (ch === '*') { L.starAt[r + ',' + c] = L.stars.length; L.stars.push({ c: c, r: r }); }
+        else if (ch === '^') L.spikes.push({ c: c, r: r, up: true });
+        else if (ch === 'v') L.spikes.push({ c: c, r: r, up: false });
+        else if (ch === 'S' || ch === 'T') L.springs.push({ c: c, r: r, low: false, trap: ch === 'T' });
+        else if (ch === 'L' || ch === 'I') L.springs.push({ c: c, r: r, low: true, trap: ch === 'I' });
+        else if (ch === ')' || ch === ']') L.bouncers.push({ c: c, r: r, side: 1, trap: ch === ']' });
+        else if (ch === '(' || ch === '[') L.bouncers.push({ c: c, r: r, side: -1, trap: ch === '[' });
+        else if (ch === 'U' || ch === 'V') L.flips.push({ c: c, r: r, to: -1, trap: ch === 'V' });
+        else if (ch === 'N') L.flips.push({ c: c, r: r, to: 1, trap: false });
+        else if (ch === 'O' || ch === 'Q') L.rings.push({ c: c, r: r, trap: ch === 'Q' });
+        else if (ch === 'u') L.glue.push({ c: c, r: r });
+        else if (ch === '+') L.pads.push({ c: c, r: r });
+        else if (ch === '>' || ch === '<') L.gates.push({ c: c, r: r, dir: ch === '>' ? 1 : -1 });
+        else if (ch === 'k' || ch === 'q') L.buttons.push({ c: c, r: r, bit: ch === 'k' ? 1 : 2 });
+        else if (ch === 'g' || ch === 'r') L.doors.push({ c: c, r: r, bit: ch === 'g' ? 1 : 2 });
+        else if (marks[ch]) marks[ch].push({ c: c, r: r });
+        else if (TELE_IN.indexOf(ch) >= 0) L.teleIn.push({ c: c, r: r, k: ch, trap: 'wxyz'.indexOf(ch) >= 0 });
+        else if (TELE_IN.indexOf(ch.toLowerCase()) >= 0 && ch !== ch.toLowerCase()) {
+          L.teleOut[ch.toLowerCase()] = { c: c, r: r };
+          L.exits.push({ c: c, r: r, k: ch.toLowerCase() });
+        }
+      }
+      // pencil lines: each unbroken run in a row is one platform
+      for (c = 0; c < w; c++) {
+        if (rows[r][c] !== '=') continue;
+        var c2 = c; while (c2 < w && rows[r][c2] === '=') c2++;
+        L.plats.push({ x: c * T, y: r * T, w: (c2 - c) * T, van: true, mv: null });
+        c = c2;
+      }
+    }
+    var byCol = function (a, b) { return a.c - b.c || a.r - b.r; };
+    var P = def.params || {};
+    var per = function (p) { L.period = lcm(L.period, p); L.timed = true; return p; };
+    marks.R.sort(byCol).forEach(function (m, n) {
+      var p = (P.R && P.R[n]) || {};
+      L.plats.push({ x: m.c * T, y: m.r * T, w: (p.w || 3) * T, van: false,
+        mv: { dx: (p.dx || 0) * T, dy: (p.dy || 0) * T, period: per(p.period || 240), phase: p.phase || 0 } });
+    });
+    marks.K.sort(byCol).forEach(function (m, n) {
+      var p = (P.K && P.K[n]) || {};
+      L.arms.push({ px: (m.c + 0.5) * T, py: (m.r + 0.5) * T, len: (p.len || 2.2) * T, kind: 'spin',
+        dir: p.dir || 1, period: per(p.period || 240), phase: p.phase || 0, group: 'K' + n });
+    });
+    marks.J.sort(byCol).forEach(function (m, n) {
+      var p = (P.J && P.J[n]) || {};
+      for (var sgn = -1; sgn <= 1; sgn += 2) {
+        L.arms.push({ px: (m.c + 0.5) * T, py: (m.r + 1) * T - 3, len: (p.len || 2) * T, kind: 'swing', sign: sgn,
+          min: (p.min == null ? 5 : p.min) * Math.PI / 180, max: (p.max == null ? 52 : p.max) * Math.PI / 180,
+          period: per(p.period || 180), phase: p.phase || 0, group: 'J' + n });
+      }
+    });
+    marks.M.sort(byCol).forEach(function (m, n) {
+      var p = (P.M && P.M[n]) || {};
+      L.staplers.push({ x: m.c * T, y: m.r * T, w: (p.w || 2) * T, h: 26, drop: (p.drop || 3) * T,
+        period: per(p.period || 240), phase: p.phase || 0 });
+    });
+    marks.H.sort(byCol);
+    for (i = 0; i + 1 < marks.H.length; i += 2) {
+      var a = marks.H[i], b = marks.H[i + 1];
+      L.zones.push({ x0: Math.min(a.c, b.c) * T, y0: Math.min(a.r, b.r) * T, x1: (Math.max(a.c, b.c) + 1) * T, y1: (Math.max(a.r, b.r) + 1) * T });
+    }
+    marks['!'].sort(byCol).forEach(function (m, n) {   // ink drips: fall from a blot to the ground, then reset
+      var p = (P.D && P.D[n]) || {};
+      L.staplers.push({ x: m.c * T + 8, y: m.r * T, w: T - 16, h: 22, drop: (p.drop || 5) * T, period: per(p.period || 180), phase: p.phase || 0, drip: true });
+    });
+    var B = def.boss;
+    if (B) {
+      L.boss = B.kind;
+      if (B.chase) L.chase = { x0: L.start.c * T - B.chase * T, v: B.v || CFG.speed, amp: (B.amp || 0) * T, per: per(B.per || 240) };
+      if (B.flip) { L.flipEvery = B.flip; per(B.flip * 2); if (L.finish) L.flipStop = (L.finish.c - 17) * T; }
+    }
+    L.vanInit = [];
+    for (i = 0; i < L.plats.length; i++) L.vanInit.push(-1);
+    return L;
+  }
+
+  function cell(L, c, r) {
+    if (r < 0 || r >= L.h || c < 0 || c >= L.w) return ' ';
+    return L.rows[r][c];
+  }
+  function solidAt(L, c, r) { return cell(L, c, r) === '#'; }
+  function solid(L, s, c, r) {
+    var ch = cell(L, c, r);
+    return ch === '#' || (ch === 'g' && !(s.btn & 1)) || (ch === 'r' && !(s.btn & 2));
+  }
+  function collides(L, s, x, y) {
+    var c0 = Math.floor(x / T), c1 = Math.floor((x + CFG.pw - 0.001) / T);
+    var r0 = Math.floor(y / T), r1 = Math.floor((y + CFG.ph - 0.001) / T);
+    for (var r = r0; r <= r1; r++) for (var c = c0; c <= c1; c++) if (solid(L, s, c, r)) return true;
+    return false;
+  }
+
+  /* moving things are pure functions of the tick count, so every run sees the same motion */
+  function platK(p, t) { return p.mv ? tri(((t + p.mv.phase) % p.mv.period) / p.mv.period) : 0; }
+  function platX(p, t) { return p.mv ? p.x + p.mv.dx * platK(p, t) : p.x; }
+  function platY(p, t) { return p.mv ? p.y + p.mv.dy * platK(p, t) : p.y; }
+  function armAngle(a, t) {
+    var u = ((t + a.phase) % a.period) / a.period;
+    if (a.kind === 'spin') return a.dir * 2 * Math.PI * u;
+    return a.sign * (a.min + (a.max - a.min) * tri(u));
+  }
+  function staplerY(m, t) {
+    var u = ((t + m.phase) % m.period) / m.period, k;
+    if (u < 0.5) k = 0; else if (u < 0.58) k = (u - 0.5) / 0.08; else if (u < 0.72) k = 1; else k = 1 - (u - 0.72) / 0.28;
+    return m.y + m.drop * k;
+  }
+  function chaseX(L, t) {
+    var c = L.chase; return c.x0 + c.v * t * CFG.dt + c.amp * Math.sin(2 * Math.PI * (t % c.per) / c.per);
+  }
+  function vanished(L, s, i) { return s.van[i] >= 0 && s.t - s.van[i] > CFG.vanish; }
+
+  function newState(L) {
+    return {
+      x: L.start.c * T + (T - CFG.pw) / 2,
+      y: (L.start.r + 1) * T - CFG.ph,
+      vy: 0, dir: 1, g: 1, grounded: true, coyote: 0, buffer: 0, jumping: false, prev: false,
+      lock: -1, ride: -1, btn: 0, boost: 0, got: 0, van: L.vanInit,
+      dead: null, won: false, t: 0
+    };
+  }
+
+  function overlap(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+  function circleHit(cx, cy, rad, x, y, w, h) {
+    var nx = cx < x ? x : cx > x + w ? x + w : cx, ny = cy < y ? y : cy > y + h ? y + h : cy;
+    var dx = cx - nx, dy = cy - ny;
+    return dx * dx + dy * dy < rad * rad;
+  }
+  function die(s, ev, cause) { s.dead = cause; if (ev) ev.push({ type: 'die', cause: cause }); }
+
+  /* One fixed tick. ev (optional array) receives {type, ...} events. */
+  function step(L, s, pressed, ev) {
+    if (s.dead || s.won) return;
+    var dt = CFG.dt, pw = CFG.pw, ph = CFG.ph, g = s.g;
+    var c0, c1, r0, r1, c, r, ch, i;
+    s.t++;
+    if (L.flipStop && s.g < 0 && s.x >= L.flipStop) {   // calm down for the finish: gravity points down again
+      s.g = 1; g = 1; s.grounded = false; s.coyote = 0; s.jumping = false; s.ride = -1;
+      if (ev) ev.push({ type: 'flip', to: 1, auto: true });
+    }
+    if (L.flipEvery && s.t % L.flipEvery === 0 && !(L.flipStop && s.x >= L.flipStop)) {
+      s.g = -s.g; g = s.g; s.grounded = false; s.coyote = 0; s.jumping = false; s.ride = -1;
+      if (ev) ev.push({ type: 'flip', to: s.g, auto: true });
+    }
+    if (s.boost > 0) s.boost--;
+    if (s.grounded && L.pads.length) {
+      var pc = Math.floor((s.x + pw / 2) / T), pr = g > 0 ? Math.floor((s.y + ph - 1) / T) : Math.floor(s.y / T);
+      if (cell(L, pc, pr) === '+') { if (ev && s.boost < CFG.boostT - 30) ev.push({ type: 'boost', c: pc, r: pr }); s.boost = CFG.boostT; }
+    }
+    if (pressed && !s.prev) s.buffer = CFG.buffer;
+    s.prev = pressed;
+    if (s.grounded) s.coyote = CFG.coyote;
+    if (s.buffer > 0 && s.coyote > 0) {
+      // glue under the feet allows only a low hop
+      var fc = Math.floor((s.x + pw / 2) / T), fr0 = g > 0 ? Math.floor((s.y + ph - 1) / T) : Math.floor(s.y / T);
+      var glued = cell(L, fc, fr0) === 'u';
+      s.vy = -g * (glued ? CFG.glueV : CFG.jumpV);
+      s.grounded = false; s.coyote = 0; s.buffer = 0; s.jumping = true; s.ride = -1;
+      if (ev) ev.push({ type: 'jump', glued: glued });
+    }
+    if (s.jumping) {
+      if (s.vy * g >= 0) s.jumping = false;
+      else if (!pressed && s.vy * g < -CFG.cutV) { s.vy = -g * CFG.cutV; s.jumping = false; }
+    }
+    s.buffer -= dt; s.coyote -= dt;
+
+    var gz = 1, mx = s.x + pw / 2, my = s.y + ph / 2;
+    for (i = 0; i < L.zones.length; i++) {
+      var z = L.zones[i];
+      if (mx >= z.x0 && mx < z.x1 && my >= z.y0 && my < z.y1) { gz = CFG.zoneG; break; }
+    }
+    s.vy += g * CFG.gravity * gz * (s.vy * g > 0 ? CFG.fallMult : 1) * dt;
+    if (s.vy * g > CFG.maxFall) s.vy = g * CFG.maxFall;
+
+    // ---- horizontal ----
+    s.x += s.dir * CFG.speed * (s.boost > 0 ? CFG.boostMult : 1) * dt;
+
+    r0 = Math.floor(s.y / T); r1 = Math.floor((s.y + ph - 0.001) / T);
+    if (s.dir > 0) {
+      c = Math.floor((s.x + pw - 0.001) / T);
+      for (r = r0; r <= r1; r++) {
+        ch = cell(L, c, r);
+        if ((ch === ')' || ch === ']') && s.x + pw >= (c + 1) * T - CFG.padW) {
+          s.dir = -1; s.x = (c + 1) * T - CFG.padW - pw;
+          s.vy = -g * CFG.bounceV; s.jumping = false; s.grounded = false; s.coyote = 0; s.ride = -1;
+          if (ev) ev.push({ type: 'bounce', c: c, r: r, trap: ch === ']' });
+          break;
+        }
+      }
+    } else {
+      c = Math.floor(s.x / T);
+      for (r = r0; r <= r1; r++) {
+        ch = cell(L, c, r);
+        if ((ch === '(' || ch === '[') && s.x <= c * T + CFG.padW) {
+          s.dir = 1; s.x = c * T + CFG.padW;
+          s.vy = -g * CFG.bounceV; s.jumping = false; s.grounded = false; s.coyote = 0; s.ride = -1;
+          if (ev) ev.push({ type: 'bounce', c: c, r: r, trap: ch === '[' });
+          break;
+        }
+      }
+    }
+
+    // one-way gates: deadly when met against the arrow
+    c0 = Math.floor(s.x / T); c1 = Math.floor((s.x + pw - 0.001) / T);
+    for (r = r0; r <= r1; r++) {
+      for (c = c0; c <= c1; c++) {
+        ch = cell(L, c, r);
+        if ((ch === '>' && s.dir < 0) || (ch === '<' && s.dir > 0)) {
+          if (overlap(s.x, s.y, pw, ph, c * T + 14, r * T, 12, T)) { die(s, ev, 'wall'); return; }
+        }
+      }
+    }
+
+    if (collides(L, s, s.x, s.y)) {
+      var fixed = false, fr, top, hr, bot;
+      fr = Math.floor((s.y + ph - 0.001) / T); top = fr * T;
+      hr = Math.floor(s.y / T); bot = (hr + 1) * T;
+      if (s.vy * g >= 0) {            // heading for the ground: forgive a clipped ledge
+        if (g > 0 && s.y + ph - top <= CFG.stepUp && !collides(L, s, s.x, top - ph)) { s.y = top - ph; s.vy = 0; s.grounded = true; fixed = true; }
+        else if (g < 0 && bot - s.y <= CFG.stepUp && !collides(L, s, s.x, bot)) { s.y = bot; s.vy = 0; s.grounded = true; fixed = true; }
+      } else {                        // rising: forgive a clipped corner overhead
+        if (g > 0 && bot - s.y <= CFG.headNudge && !collides(L, s, s.x, bot)) { s.y = bot; s.vy = 0; s.jumping = false; fixed = true; }
+        else if (g < 0 && s.y + ph - top <= CFG.headNudge && !collides(L, s, s.x, top - ph)) { s.y = top - ph; s.vy = 0; s.jumping = false; fixed = true; }
+      }
+      if (!fixed) { die(s, ev, 'wall'); return; }
+    }
+
+    // ---- vertical ----
+    var prevY = s.y, p, px, py;
+    if (s.ride >= 0) {
+      p = L.plats[s.ride]; px = platX(p, s.t); py = platY(p, s.t);
+      if (!(p.van && vanished(L, s, s.ride)) && s.x + pw > px && s.x < px + p.w) {
+        s.y = g > 0 ? py - ph : py + CFG.plankH;
+        s.vy = 0; s.grounded = true;
+        if (collides(L, s, s.x, s.y)) { die(s, ev, 'wall'); return; }
+      } else { s.ride = -1; s.grounded = false; }
+    }
+    if (s.ride < 0) {
+      s.y += s.vy * dt;
+      if (collides(L, s, s.x, s.y)) {
+        var toGround = s.vy * g > 0;
+        if (s.vy > 0) { r = Math.floor((s.y + ph - 0.001) / T); s.y = r * T - ph; }
+        else { r = Math.floor(s.y / T); s.y = (r + 1) * T; }
+        s.vy = 0;
+        if (toGround) { if (!s.grounded && ev) ev.push({ type: 'land' }); s.grounded = true; }
+        else { s.jumping = false; if (ev) ev.push({ type: 'bump' }); }
+      } else {
+        s.grounded = false;
+        if (s.vy * g >= 0) {
+          for (i = 0; i < L.plats.length; i++) {
+            p = L.plats[i];
+            if (p.van && vanished(L, s, i)) continue;
+            px = platX(p, s.t);
+            if (s.x + pw <= px || s.x >= px + p.w) continue;
+            py = platY(p, s.t);
+            var hit = g > 0 ? (prevY + ph <= py + 7 && s.y + ph >= py) : (prevY >= py + CFG.plankH - 7 && s.y <= py + CFG.plankH);
+            if (!hit) continue;
+            s.y = g > 0 ? py - ph : py + CFG.plankH;
+            s.vy = 0; s.grounded = true; s.ride = i;
+            if (p.van && s.van[i] < 0) { s.van = s.van.slice(); s.van[i] = s.t; if (ev) ev.push({ type: 'plank', i: i }); }
+            if (!p.van && ev) ev.push({ type: 'ride', i: i });
+            if (ev) ev.push({ type: 'land' });
+            break;
+          }
+        }
+      }
+    }
+
+    // ---- triggers ----
+    c0 = Math.floor(s.x / T); c1 = Math.floor((s.x + pw - 0.001) / T);
+    r0 = Math.floor(s.y / T); r1 = Math.floor((s.y + ph - 0.001) / T);
+    var inRing = false;
+    for (r = r0; r <= r1; r++) {
+      for (c = c0; c <= c1; c++) {
+        ch = cell(L, c, r);
+        if (ch === ' ' || ch === '#') continue;
+        var X = c * T, Y = r * T;
+        if (ch === '^') {
+          if (overlap(s.x, s.y, pw, ph, X + 10, Y + 18, 20, 22)) { die(s, ev, 'spike'); return; }
+        } else if (ch === 'v') {
+          if (overlap(s.x, s.y, pw, ph, X + 10, Y, 20, 22)) { die(s, ev, 'spike'); return; }
+        } else if (ch === 'S' || ch === 'T' || ch === 'L' || ch === 'I') {
+          if (g > 0 && s.vy >= 0 && overlap(s.x, s.y, pw, ph, X + 4, Y + 28, 32, 12)) {
+            var low = ch === 'L' || ch === 'I';
+            s.vy = -(low ? CFG.launchV : CFG.springV); s.grounded = false; s.coyote = 0; s.buffer = 0; s.jumping = false; s.ride = -1;
+            if (ev) ev.push({ type: 'spring', c: c, r: r, low: low, trap: ch === 'T' || ch === 'I' });
+          }
+        } else if (ch === 'U' || ch === 'V' || ch === 'N') {
+          var to = ch === 'N' ? 1 : -1;
+          if (s.g !== to && overlap(s.x, s.y, pw, ph, X + 8, Y + 2, 24, 36)) {
+            s.g = to; g = to; s.grounded = false; s.coyote = 0; s.jumping = false; s.ride = -1;
+            if (ev) ev.push({ type: 'flip', c: c, r: r, to: to, trap: ch === 'V' });
+          }
+        } else if (ch === 'O' || ch === 'Q') {
+          if (overlap(s.x, s.y, pw, ph, X + 3, Y + 3, 34, 34)) {
+            var id = r * L.w + c;
+            inRing = true;
+            if (s.buffer > 0 && s.lock !== id) {
+              // a ring always gives the full boost, so its result does not depend on how long you hold
+              s.vy = -g * CFG.jumpV; s.jumping = false; s.buffer = 0; s.lock = id; s.grounded = false; s.coyote = 0; s.ride = -1;
+              if (ev) ev.push({ type: 'ring', c: c, r: r, trap: ch === 'Q' });
+            }
+          }
+        } else if (ch === 'k' || ch === 'q') {
+          var bit = ch === 'k' ? 1 : 2;
+          if (!(s.btn & bit) && overlap(s.x, s.y, pw, ph, X + 6, Y + 6, 28, 34)) {
+            s.btn |= bit;
+            if (ev) ev.push({ type: 'button', c: c, r: r, bit: bit });
+          }
+        } else if (ch === '*') {
+          var sb = 1 << L.starAt[r + ',' + c];
+          if (!(s.got & sb) && overlap(s.x, s.y, pw, ph, X + 8, Y + 8, 24, 24)) {
+            s.got |= sb;
+            if (ev) ev.push({ type: 'star', c: c, r: r, got: s.got });
+          }
+        } else if (ch === 'F') {
+          if (overlap(s.x, s.y, pw, ph, X + 6, Y + 2, 28, 36)) { s.won = true; if (ev) ev.push({ type: 'win' }); return; }
+        } else if (TELE_IN.indexOf(ch) >= 0) {
+          if (overlap(s.x, s.y, pw, ph, X + 10, Y + 10, 20, 20)) {
+            var ex = L.teleOut[ch];
+            if (ex) {
+              var fx = s.x + pw / 2, fy = s.y + ph / 2;
+              s.x = ex.c * T + (T - pw) / 2; s.y = ex.r * T + (T - ph) / 2;
+              s.grounded = false; s.vy = 0; s.jumping = false; s.coyote = 0; s.ride = -1;
+              if (ev) ev.push({ type: 'teleport', fx: fx, fy: fy, tx: s.x + pw / 2, ty: s.y + ph / 2, k: ch, trap: 'wxyz'.indexOf(ch) >= 0 });
+              return;
+            }
+          }
+        }
+      }
+    }
+    if (!inRing) s.lock = -1;
+
+    // ---- moving hazards ----
+    for (i = 0; i < L.arms.length; i++) {
+      var a = L.arms[i];
+      if (Math.abs(a.px - mx) > a.len + 60) continue;
+      var th = armAngle(a, s.t), sn = Math.sin(th), cs = Math.cos(th);
+      for (var q = 0; q < ARM_AT.length; q++) {
+        var d = a.len * ARM_AT[q];
+        if (circleHit(a.px + sn * d, a.py - cs * d, 6, s.x, s.y, pw, ph)) { die(s, ev, 'blade'); return; }
+      }
+    }
+    for (i = 0; i < L.staplers.length; i++) {
+      var m = L.staplers[i];
+      if (s.x + pw <= m.x + 3 || s.x >= m.x + m.w - 3) continue;
+      var sy = staplerY(m, s.t);
+      if (overlap(s.x, s.y, pw, ph, m.x + 3, sy, m.w - 6, m.h)) { die(s, ev, 'crush'); return; }
+    }
+
+    if (L.chase && s.x + pw < chaseX(L, s.t)) { die(s, ev, 'chase'); return; }
+    if (s.y > L.h * T + 60 || s.y < -ph - 100 || s.x < -T * 2 || s.x > L.w * T + T) die(s, ev, 'pit');
+  }
+
+  return {
+    T: T, CFG: CFG, ARM_AT: ARM_AT, parseLevel: parseLevel, newState: newState, step: step,
+    cell: cell, solidAt: solidAt, solid: solid,
+    platX: platX, platY: platY, armAngle: armAngle, staplerY: staplerY, vanished: vanished, chaseX: chaseX
+  };
+});
+
+</script>
+<script>
+/* Levels: ASCII maps built from bottom-aligned segments.
+   # solid   ^ floor spikes   v ceiling spikes   S spring   ) ( wall bouncers
+   a-e teleport in -> A-E out   P start   F finish   1-9 text anchors
+   Trap twins (look and behave the same, used by the tests): T spring, ] [ bouncers, w-z -> W-Z teleports */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Levels = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  function rep(ch, n) { var s = ''; while (n-- > 0) s += ch; return s; }
+  function hcat(H, segs) {
+    var rows = [], i;
+    for (i = 0; i < H; i++) rows.push('');
+    segs.forEach(function (s) {
+      var w = 0;
+      s.forEach(function (r) { w = Math.max(w, r.length); });
+      var pad = H - s.length;
+      if (pad < 0) throw new Error('segment taller than level');
+      for (i = 0; i < H; i++) {
+        var src = i < pad ? '' : s[i - pad];
+        rows[i] += src + rep(' ', w - src.length);
+      }
+    });
+    return rows;
+  }
+  function G(n) { return [rep(' ', n), rep('#', n), rep('#', n)]; }
+  function PIT(n) { return [rep(' ', n), rep(' ', n), rep(' ', n)]; }
+  function G4(n) { return [rep(' ', n), rep('#', n), rep('#', n), rep('#', n), rep('#', n)]; }
+  function PIT4(n) { return [rep(' ', n), rep(' ', n), rep(' ', n), rep(' ', n), rep(' ', n)]; }
+
+  var levels = [];
+
+  /* 1 — jumps, spikes, pits */
+  levels.push({
+    id: 'warmup',
+    texts: { '1': 'tap = jump', '2': 'hold = higher jump', '3': 'short tap = low jump' },
+    map: hcat(14, [
+      ['      1     ',
+       '            ',
+       '            ',
+       ' P          ',
+       '############',
+       '############'],
+      ['  ^  ', '#####', '#####'],
+      G(4),
+      ['  ^  ', '#####', '#####'],
+      G(3),
+      ['    2      ',
+       '           ',
+       '           ',
+       '    ###    ',
+       '    ###    ',
+       '###########',
+       '###########'],
+      G(2),
+      PIT(3),
+      G(5),
+      [' ^^ ', '####', '####'],
+      G(5),
+      ['      #####',
+       '   ########',
+       '###########',
+       '###########'],
+      PIT(4),
+      ['   3  ', '      ', '      ', '######', '######'],
+      ['##############',
+       ' vvvvvvvvvvvv ',
+       '              ',
+       '              ',
+       '    ^     ^   ',
+       '##############',
+       '##############'],
+      G(5),
+      PIT(4),
+      ['    F  ', '#######', '#######']
+    ])
+  });
+
+  /* 2 — springs */
+  levels.push({
+    id: 'springs',
+    texts: { '1': 'springs launch you high', '2': 'not every spring is a friend' },
+    map: hcat(18, [
+      ['      1     ',
+       '            ',
+       '            ',
+       ' P          ',
+       '############',
+       '############'],
+      ['     #######',
+       '     #######',
+       '     #######',
+       '  S  #######',
+       '############',
+       '############'],
+      G(9),
+      ['  S', '###', '###'], PIT(5), G(8),
+      ['#############',
+       ' vvvvvvvvvvv ',
+       '             ',
+       '      2      ',
+       '             ',
+       '             ',
+       '      T      ',
+       '#############',
+       '#############'],
+      G(7),
+      ['  S', '###', '###'], PIT(5), ['S', '#', '#'], PIT(5), G(5), [' ^ ', '###', '###'], G(6),
+      ['  T', '###', '###'], PIT(2), G(3), PIT(3), G(8),
+      ['        F   ',
+       '     #######',
+       '     #######',
+       '     #######',
+       '     #######',
+       '  S  #######',
+       '############',
+       '############']
+    ])
+  });
+
+  /* 3 — wall bouncers */
+  levels.push({
+    id: 'walls',
+    texts: { '1': 'bouncy walls turn you around', '2': 'some are better skipped' },
+    map: hcat(16, [
+      ['            ', ' P          ', '############', '############'],
+      ['                    1             ',
+       '      #                   ########',
+       '      #(        ^         ########',
+       '      #################   ########',
+       '                         )########',
+       '##################################',
+       '##################################'],
+      ['###', '###', '###', '###', '###', '###'],
+      G(8),
+      ['#           ',
+       '#(          ',
+       '#(          ',
+       '#(   #######',
+       '#(   #######',
+       '#(  )#######',
+       '#(  )#######',
+       '    )#######',
+       '    )#######',
+       '############',
+       '############'],
+      G(9),
+      ['    2      ',
+       '           ',
+       '           ',
+       '  ^^   ]#  ',
+       '###########',
+       '###########'],
+      G(4), PIT(3), G(4),
+      [' #                  #',
+       ' #                  #',
+       ' #                  #',
+       ' # F      ^         #',
+       ' ###############    #',
+       '                   )#',
+       '#####################',
+       '#####################']
+    ])
+  });
+
+  /* 4 — teleports. Every exit is in view from its hole, and each pair shares a color. */
+  levels.push({
+    id: 'holes',
+    texts: { '1': 'a hole in the page is a shortcut', '2': 'sometimes you have to fall', '3': 'same color = same pair' },
+    map: hcat(18, [
+      ['      1      ',
+       '             ',
+       '             ',
+       ' P           ',
+       '#############', '#############', '#############', '#############'],
+      ['             2  ',
+       '                ',
+       '        A       ',
+       '      ##########',
+       '      ##########',
+       '      ##########',
+       '      ##########',
+       '    a ##########',
+       '################', '################', '################', '################'],
+      ['  b      ',
+       '         ',
+       '         ',
+       '         ', '         ', '         ', '         '],
+      [' B      ', '########', '########', '########', '########'],
+      G4(4),
+      ['      3         ',
+       '                ',
+       '                ',
+       '         W      ',
+       '   w      ^^    ',
+       '################', '################', '################', '################'],
+      G4(6),
+      ['        ##        ',
+       '     c  ##        ',
+       '        ##    X   ',
+       '     x  ## C   ^^ ',
+       '##################', '##################', '##################', '##################'],
+      G4(5),
+      ['        D           F  ',
+       '      #########   #####',
+       '      #########   #####',
+       '      #########   #####',
+       '      #########   #####',
+       '   d  #########   #####',
+       '#######################', '#######################', '#######################', '#######################']
+    ])
+  });
+
+  /* 5 — everything, with the earlier lessons turned upside down */
+  levels.push({
+    id: 'quiz',
+    texts: { '1': 'pop quiz. good luck' },
+    map: hcat(20, [
+      ['      1    ',
+       '           ',
+       '           ',
+       ' P         ',
+       '###########', '###########', '###########', '###########'],
+      ['#############',
+       ' vvvvvvvvvvv ',
+       '             ',
+       '             ',
+       '             ',
+       '      #######',
+       '      #######',
+       '      #######',
+       '      #######',
+       '   S  #######',
+       '#############', '#############', '#############', '#############'],
+      ['    #####     ',
+       '    vvvvv     ',
+       '              ',
+       '              ',
+       '              ',
+       '   T          ',
+       '####          ',
+       '####          ',
+       '####          ',
+       '####          ',
+       '####          ',
+       '##############', '##############', '##############', '##############'],
+      G4(4),
+      ['                  a   ',
+       '                      ',
+       ' #                    ',
+       ' #(                   ',
+       ' ################     ',
+       '                    )#',
+       '######################', '######################', '######################', '######################'],
+      PIT4(7),
+      [' A    ', '######', '######', '######', '######'],
+      G4(4),
+      ['    ', '    ', ' y  ', '    ', '    '],
+      ['   Y        ',
+       '            ',
+       '            ',
+       '     ^^     ',
+       '############', '############', '############', '############'],
+      G4(5),
+      ['         ###########   ',
+       '         vvvvvvvvvvv   ',
+       '                       ',
+       '                       ',
+       '                       ',
+       '                       ',
+       '             T      F  ',
+       '     ##################',
+       '     ##################',
+       '     ##################',
+       '  S  ##################',
+       '#######################', '#######################', '#######################', '#######################']
+    ])
+  });
+
+  /* 6 — gravity arrows */
+  levels.push({
+    id: 'flip', needs: ['flip'],
+    texts: { '1': 'arrows flip gravity', '2': 'not every arrow is a friend' },
+    map: hcat(10, [
+      ['############', '############', '            ', '            ', '      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['######', '######', '      ', '      ', '      ', '      ', '      ', '  U   ', '######', '######'],
+      ['##############', '##############', '       v      ', '              ', '              ', '              ', '              ', '              ', '##############', '##############'],
+      ['####   #####', '####   #####', '            ', '            ', '            ', '            ', '            ', '            ', '############', '############'],
+      ['######', '######', '  N   ', '      ', '      ', '      ', '      ', '      ', '######', '######'],
+      ['#########', '#########', '         ', '         ', '         ', '         ', '         ', '         ', '####   ##', '####   ##'],
+      ['############', '############', ' vvvvvvvvvv ', '            ', '      2     ', '            ', '            ', '    V       ', '############', '############'],
+      ['#####', '#####', '     ', '     ', '     ', '     ', '     ', '  U  ', '#####', '#####'],
+      ['#########   ####', '#########   ####', '   v            ', '                ', '                ', '                ', '                ', ' ^^^^^^^^^^^^^^ ', '################', '################'],
+      ['#######', '#######', '    F  ', '       ', '       ', '       ', '       ', ' ^^^^^ ', '#######', '#######']
+    ])
+  });
+
+  /* 7 — jump rings */
+  levels.push({
+    id: 'rings', needs: ['ring'],
+    texts: { '1': 'tap again inside a ring', '2': 'some rings are bait' },
+    map: hcat(14, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['   O   ', '       ', '       ', '       ', '       '],
+      G(8),
+      ['       O    ', '   O        ', '            ', '            ', '            ', '            '],
+      G(8),
+      ['       #####',
+       '    O  #####',
+       '       #####',
+       '  O    #####',
+       '       #####',
+       '       #####',
+       '############',
+       '############'],
+      ['####', '####', '####', '####', '####', '####', '####', '####'],
+      ['    2   ', '        ', '        ', '        ', '########', '########'],
+      ['###########',
+       ' vvvvvvvvv ',
+       '           ',
+       '     Q     ',
+       '           ',
+       '           ',
+       '###    ####',
+       '###    ####'],
+      G(6),
+      ['   O   ', '       ', '       ', '       ', '       '],
+      ['   F  ', '######', '######']
+    ])
+  });
+
+  /* 8 — pencil lines and rulers */
+  levels.push({
+    id: 'lines', needs: ['plank', 'ride'],
+    texts: { '1': 'pencil lines erase behind you', '2': 'a long line will not wait' },
+    params: { R: [{ w: 3, dx: 4, dy: 0, period: 240, phase: 0 }, { w: 3, dx: 0, dy: -2, period: 240, phase: 0 }] },
+    map: hcat(14, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['          ', '==  ==  ==', '          '],
+      G(7),
+      ['   2  ', '      ', '      ', '      ', '======', '      '],
+      G(8),
+      ['         ', ' R       ', '         '],
+      G(8),
+      ['        F   ',
+       '      ######',
+       '      ######',
+       '      ######',
+       '  R   ######',
+       '############',
+       '############']
+    ])
+  });
+
+  /* 9 — compasses and scissors */
+  levels.push({
+    id: 'blades',
+    texts: { '1': 'blades move. learn the rhythm' },
+    params: {
+      K: [{ len: 2.6, period: 240, phase: 0, dir: 1 }, { len: 2.4, period: 240, phase: 60, dir: -1 }, { len: 2.6, period: 240, phase: 120, dir: 1 }],
+      J: [{ len: 1.6, period: 180, phase: 0 }, { len: 1.6, period: 180, phase: 90 }]
+    },
+    map: hcat(14, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['    K    ', '         ', '         ', '         ', '#########', '#########'],
+      G(5),
+      ['   J   ', '#######', '#######'],
+      G(6),
+      ['    K    ', '         ', '         ', '         ', '         ', '###   ###', '###   ###'],
+      G(6),
+      ['   J        ', '############', '############'],
+      ['    K    ', '         ', '         ', '         ', '#########', '#########'],
+      G(4),
+      ['  ^^   F  ', '##########', '##########']
+    ])
+  });
+
+  /* 10 — first exam: arrows, rings, pencil lines, blades */
+  levels.push({
+    id: 'exam1',
+    texts: { '1': 'exam time' },
+    params: { K: [{ len: 2.4, period: 240, phase: 30, dir: 1 }], J: [{ len: 1.6, period: 180, phase: 40 }] },
+    map: hcat(12, [
+      ['############', '############', '            ', '            ', '            ', '            ', '      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['#######', '#######', '       ', '       ', '       ', '       ', '       ', '   O   ', '       ', '       ', '       ', '       '],
+      ['########', '########', '        ', '        ', '        ', '        ', '        ', '        ', '        ', '        ', '########', '########'],
+      ['##########', '##########', '          ', '          ', '          ', '          ', '          ', '          ', '          ', '          ', '==  ==  ==', '          '],
+      ['#######', '#######', '       ', '       ', '       ', '       ', '       ', '       ', '       ', '    U  ', '#######', '#######'],
+      ['######       ######', '######       ######', '        v          ', '          O        ', '                   ', '                   ', '                   ', '                   ', '                   ', ' ^^^^^^^^^^^^^^^^^ ', '###################', '###################'],
+      ['#######', '#######', '   N   ', '       ', '       ', '       ', '       ', '       ', '       ', ' ^^    ', '#######', '#######'],
+      ['############', '############', '            ', '            ', '            ', '            ', '            ', '            ', '            ', '      J     ', '############', '############'],
+      ['############', '############', ' vvvvvvvvvv ', '            ', '            ', '            ', '            ', '            ', '            ', '     V      ', '############', '############'],
+      ['##########', '##########', '          ', '          ', '          ', '          ', '     K    ', '          ', '          ', '          ', '##########', '##########'],
+      ['########', '########', '        ', '        ', '        ', '        ', '        ', '        ', '        ', '     F  ', '########', '########']
+    ])
+  });
+
+  /* 11 — glue and folded corners */
+  levels.push({
+    id: 'glue',
+    texts: { '1': 'glue: a hop, not a jump', '2': 'a folded corner flicks you up' },
+    map: hcat(14, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['##########',
+       ' vvvvvvvv ',
+       '          ',
+       '   uu^    ',
+       '##########',
+       '##########'],
+      G(6),
+      ['      ####',
+       '   uuu####',
+       '##########',
+       '##########'],
+      G(8),
+      ['      2    ',
+       '           ',
+       '    #######',
+       '    #######',
+       '  L #######',
+       '###########',
+       '###########'],
+      G(8),
+      ['###########',
+       ' vvvvvvvvv ',
+       '           ',
+       '           ',
+       '     I     ',
+       '###########',
+       '###########'],
+      G(5),
+      [' uu ', '####', '####'],
+      ['         F ',
+       '    #######',
+       '    #######',
+       '  L #######',
+       '###########',
+       '###########']
+    ])
+  });
+
+  /* 12 — highlighter zones */
+  levels.push({
+    id: 'marker',
+    texts: { '1': 'highlighter makes you light' },
+    map: hcat(16, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['H            ', '             ', '             ', '             ', '             ', '             ', '             ', '            H', '##         ##', '##         ##'],
+      G(6),
+      ['H           ',
+       '############',
+       ' vvvvvvvvvv ',
+       '            ',
+       '            ',
+       '     ^^    H',
+       '############',
+       '############'],
+      G(6),
+      ['H             ',
+       '      ########',
+       '      ########',
+       '      ########',
+       '      ########',
+       '      ########',
+       '      #######H',
+       '##############',
+       '##############'],
+      G(8),
+      ['H             ', '              ', '              ', '              ', '              ', '              ', '              ', '             H', '##          ##', '##          ##'],
+      ['   F  ', '######', '######']
+    ])
+  });
+
+  /* 13 — one-way gates, and a button that erases a door */
+  levels.push({
+    id: 'gates', needs: ['button'],
+    texts: { '1': 'against its arrow, a gate bites', '2': 'a button erases the door of its color' },
+    map: hcat(16, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['   <   ', '#######', '#######'],
+      G(5),
+      ['                  2               ',
+       '                          ########',
+       '      #                   ########',
+       '      #(   k    <         ########',
+       '      #################   ########',
+       '                         )########',
+       '##################################',
+       '##################################'],
+      ['###', '###', '###', '###', '###', '###'],
+      G(9),
+      ['   ##',
+       '   ##',
+       '   ##',
+       '   ##',
+       '   gg',
+       '   gg',
+       '#####',
+       '#####'],
+      G(6),
+      ['  >   <   F  ', '#############', '#############']
+    ])
+  });
+
+  /* 14 — staplers */
+  levels.push({
+    id: 'stapler',
+    texts: { '1': 'staplers slam. duck under or hop over' },
+    params: { M: [{ phase: 0 }, { phase: 100 }, { phase: 40 }, { phase: 160 }, { phase: 200 }] },
+    map: hcat(14, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['   M    ', '        ', '        ', '        ', '########', '########'],
+      G(4),
+      ['   M    ', '        ', '        ', '    ^   ', '########', '########'],
+      G(5),
+      ['  M  M   ', '         ', '         ', '         ', '#########', '#########'],
+      G(5),
+      ['   M     ', '         ', '         ', '         ', '###   ###', '###   ###'],
+      G(5),
+      ['    F  ', '#######', '#######']
+    ])
+  });
+
+  /* 15 — final exam: glue, corners, highlighter, gates, buttons, staplers, and older tricks */
+  levels.push({
+    id: 'exam2', needs: ['button'],
+    texts: { '1': 'final exam' },
+    params: { M: [{ phase: 20 }, { phase: 140 }] },
+    map: hcat(16, [
+      ['      1     ', '            ', '            ', ' P          ', '############', '############'],
+      ['##########',
+       ' vvvvvvvv ',
+       '          ',
+       '   uu^    ',
+       '##########',
+       '##########'],
+      G(6),
+      ['###########',
+       ' vvvvvvvvv ',
+       '           ',
+       '           ',
+       '     I     ',
+       '###########',
+       '###########'],
+      G(5),
+      ['H            ', '             ', '             ', '             ', '             ', '             ', '             ', '            H', '##         ##', '##         ##'],
+      G(4),
+      ['   <      M    ', '               ', '               ', '               ', '###############', '###############'],
+      G(4),
+      ['      k     ',
+       '    ########',
+       '    ########',
+       '  L ########',
+       '############',
+       '############'],
+      G(8),
+      ['   ##',
+       '   ##',
+       '   ##',
+       '   ##',
+       '   gg',
+       '   gg',
+       '#####',
+       '#####'],
+      G(5),
+      ['   M    ', '        ', '        ', '        ', '########', '########'],
+      G(3),
+      ['   O   ', '       ', '       ', '       ', '       '],
+      ['   F  ', '######', '######']
+    ])
+  });
+
+  /* ---------- worlds: levels 6-20 of each world are assembled from obstacle pieces ---------- */
+  function B(n) { return [rep(' ', n)]; }
+  function V(rows, n) { var o = []; while (n-- > 0) o.push(rows); return o; }  // n copies of a row
+  function GR(r) { return [r.replace(/[^#]/g, '#'), r.replace(/[^#]/g, '#')]; }
+  function cat() { var o = []; for (var i = 0; i < arguments.length; i++) o = o.concat(arguments[i]); return o; }
+  var CH = {
+    /* world 1: spikes, pits, springs, bouncy walls, holes */
+    s1: { w: 1, d: 1, s: [['  ^  ', '#####', '#####']] },
+    s2: { w: 1, d: 1, s: [[' ^^ ', '####', '####']] },
+    s3: { w: 1, d: 2, s: [['  ^    ^  ', '##########', '##########']] },
+    p3: { w: 1, d: 1, s: [PIT(3)] },
+    p4: { w: 1, d: 1, s: [PIT(4)] },
+    p5: { w: 1, d: 2, s: [PIT(5)] },
+    blk: { w: 1, d: 1, s: [['    ###    ', '    ###    ', '###########', '###########']] },
+    stair: { w: 1, d: 1, s: [['      #####', '   ########', '###########', '###########']] },
+    tun: { w: 1, d: 2, s: [['##############', ' vvvvvvvvvvvv ', '              ', '              ', '    ^     ^   ', '##############', '##############']] },
+    sp1: { w: 1, d: 1, s: [['     #######', '     #######', '     #######', '  S  #######', '############', '############']] },
+    sp2: { w: 1, d: 1, s: [['  S     ', '###     ', '###     ']] },
+    sp3: { w: 1, d: 2, s: [['  S     S     ', '###     #     ', '###     #     ']] },
+    spT: { w: 1, d: 2, trap: 1, s: [['#############', ' vvvvvvvvvvv ', '             ', '             ', '             ', '             ', '      T      ', '#############', '#############']] },
+    spC: { w: 1, d: 3, s: [['#############', ' vvvvvvvvvvv ', '             ', '             ', '             ', '      #######', '      #######', '      #######', '      #######', '   S  #######', '#############', '#############']] },
+    bo2: { w: 1, d: 3, s: [['#           ', '#(          ', '#(          ', '#(   #######', '#(   #######', '#(  )#######', '#(  )#######', '    )#######', '    )#######', '############', '############']] },
+    boT: { w: 1, d: 2, trap: 1, s: [['  ^^   ]#  ', '###########', '###########']] },
+    tp1: { w: 1, d: 1, s: [['        A       ', '      ##########', '      ##########', '      ##########', '      ##########', '    a ##########', '################', '################']] },
+    tp2: { w: 1, d: 2, s: [['        A       ', '      ##########', '      ##########', '      ##########', '      ##########', '    a ##########', '################', '################'],
+                            ['  b      ', '         ', '         ', '         ', '         '],
+                            [' B      ', '########', '########']] },
+    tpT: { w: 1, d: 2, trap: 1, s: [['         W      ', '   w      ^^    ', '################', '################']] },
+    tpX: { w: 1, d: 3, trap: 1, s: [['        ##        ', '     a  ##        ', '        ##    W   ', '     w  ## A   ^^ ', '##################', '##################']] },
+    tpP: { w: 1, d: 1, trap: 1, s: [['     ', '     ', '  w  ']] },
+
+    /* speed pads (any world) */
+    pd0: { w: 0, d: 1, s: [['  ++  ', '######', '######']] },
+    pd1: { w: 0, d: 2, s: [['  ++       ', '####      #', '####      #']] },
+    pd2: { w: 0, d: 2, s: [['  ++    ^^^^^  ', '###############', '###############']] },
+
+    /* world 2: gravity arrows, rings, pencil lines, rulers, compasses, scissors */
+    fl1: { w: 2, d: 1, s: [cat(V('######', 2), V('      ', 5), ['  U   '], V('######', 2)),
+                            cat(V('##############', 2), ['       v      '], V('              ', 5), V('##############', 2)),
+                            cat(V('####   #####', 2), V('            ', 6), V('############', 2)),
+                            cat(V('######', 2), ['  N   '], V('      ', 5), V('######', 2)),
+                            cat(V('#########', 2), V('         ', 6), V('####   ##', 2))] },
+    flT: { w: 2, d: 2, trap: 1, s: [cat(V('############', 2), [' vvvvvvvvvv '], V('            ', 4), ['    V       '], V('############', 2))] },
+    fl2: { w: 2, d: 2, s: [cat(V('#####', 2), V('     ', 5), ['  U  '], V('#####', 2)),
+                            cat(V('#########   ####', 2), ['   v            '], V('                ', 4), [' ^^^^^^^^^^^^^^ '], V('################', 2)),
+                            cat(V('#########', 2), ['   N     '], V('         ', 5), V('#########', 2))] },
+    fl3: { w: 2, d: 3, s: [cat(V('#####', 2), V('     ', 5), ['  U  '], V('#####', 2)),
+                            cat(V('#####   #####   #####', 2), V('                     ', 6), V('#####################', 2)),
+                            cat(V('######', 2), ['  N   '], V('      ', 5), V('######', 2)),
+                            cat(V('#######', 2), V('       ', 5), [' ^^^   '], V('#######', 2))] },
+    r1: { w: 2, d: 1, s: [['   O   ', '       ', '       ', '       ', '       ']] },
+    r2: { w: 2, d: 2, s: [['       O    ', '   O        ', '            ', '            ', '            ', '            ']] },
+    r3: { w: 2, d: 2, s: [['       #####', '    O  #####', '       #####', '  O    #####', '       #####', '       #####', '############', '############'], V('####', 8)] },
+    rT: { w: 2, d: 2, trap: 1, s: [['###########', ' vvvvvvvvv ', '           ', '     Q     ', '           ', '           ', '###    ####', '###    ####']] },
+    l1: { w: 2, d: 1, s: [['          ', '==  ==  ==', '          ']] },
+    l2: { w: 2, d: 1, s: [['      ', '======', '      ']] },
+    l3: { w: 2, d: 2, s: [['              ', '==  ==  ==  ==', '              ']] },
+    m1: { w: 2, d: 2, p: { R: [{ w: 3, dx: 4, dy: 0, period: 240, phase: 0 }] }, s: [['         ', ' R       ', '         ']] },
+    m2: { w: 2, d: 2, p: { R: [{ w: 3, dx: 0, dy: -2, period: 240, phase: 0 }] }, s: [['      ######', '      ######', '      ######', '  R   ######', '############', '############']] },
+    k1: { w: 2, d: 2, p: { K: [{ len: 2.6, period: 240, phase: 0, dir: 1 }] }, s: [['    K    ', '         ', '         ', '         ', '#########', '#########']] },
+    k2: { w: 2, d: 3, p: { K: [{ len: 2.6, period: 240, phase: 0, dir: -1 }] }, s: [['    K    ', '         ', '         ', '         ', '         ', '###   ###', '###   ###']] },
+    j1: { w: 2, d: 1, p: { J: [{ len: 1.6, period: 180, phase: 0 }] }, s: [['   J   ', '#######', '#######']] },
+
+    /* world 3: glue, folded corners, highlighter, gates, buttons and doors, staplers */
+    g1: { w: 3, d: 1, s: [['##########', ' vvvvvvvv ', '          ', '   uu^    ', '##########', '##########']] },
+    g2: { w: 3, d: 1, s: [['      ####', '   uuu####', '##########', '##########']] },
+    g3: { w: 3, d: 2, s: [[' uu    ', '####   ', '####   ']] },
+    c1: { w: 3, d: 1, s: [['    #######', '    #######', '  L #######', '###########', '###########']] },
+    cT: { w: 3, d: 2, trap: 1, s: [['###########', ' vvvvvvvvv ', '           ', '           ', '     I     ', '###########', '###########']] },
+    h1: { w: 3, d: 1, s: [cat(['H            '], V('             ', 6), ['            H'], V('##         ##', 2))] },
+    h2: { w: 3, d: 2, s: [['H           ', '############', ' vvvvvvvvvv ', '            ', '            ', '     ^^    H', '############', '############']] },
+    h3: { w: 3, d: 2, s: [cat(['H             '], V('      ########', 5), ['      #######H'], V('##############', 2))] },
+    gt1: { w: 3, d: 1, s: [['   <   ', '#######', '#######']] },
+    gt2: { w: 3, d: 2, s: [['  >   <   ', '##########', '##########']] },
+    bt2: { w: 3, d: 2, s: [['        ##', '        ##', '        gg', '  k  ^  gg', '##########', '##########']] },
+    bt3: { w: 3, d: 3, s: [['            ##', '            ##', '            ##', '            ##', '    k       gg', '   #####    gg', '            gg', '##############', '##############']] },
+    dr1: { w: 3, d: 1, boss: 1, p: { D: [{ drop: 4.4, period: 180, phase: 0 }] }, s: [['  !  ', '     ', '     ', '     ', '     ', '#####', '#####']] },
+    dr2: { w: 3, d: 2, boss: 1, p: { D: [{ drop: 4.4, period: 180, phase: 0 }, { drop: 4.4, period: 180, phase: 90 }] }, s: [['  !   !  ', '         ', '         ', '         ', '         ', '#########', '#########']] },
+    dr3: { w: 3, d: 2, boss: 1, p: { D: [{ drop: 4.4, period: 180, phase: 0 }] }, s: [['   !   ', '       ', '       ', '       ', '       ', '##   ##', '##   ##']] },
+    st1: { w: 3, d: 1, p: { M: [{ phase: 0 }] }, s: [['   M    ', '        ', '        ', '        ', '########', '########']] },
+    st2: { w: 3, d: 2, p: { M: [{ phase: 0 }] }, s: [['   M    ', '        ', '        ', '    ^   ', '########', '########']] },
+    st3: { w: 3, d: 2, p: { M: [{ phase: 0 }, { phase: 120 }] }, s: [['  M  M   ', '         ', '         ', '         ', '#########', '#########']] },
+    st4: { w: 3, d: 3, p: { M: [{ phase: 0 }] }, s: [['   M     ', '         ', '         ', '         ', '###   ###', '###   ###']] }
+  };
+  function bossLevel(b) {
+    var lv = b.boss.kind === 'pendulum' ? { id: 'boss' + b.world, texts: {}, params: {}, map: corr(b.spec) } : assemble('boss' + b.world, b.spec);
+    lv.id = 'boss' + b.world; lv.world = b.world; lv.boss = b.boss;
+    return lv;
+  }
+  var NORMAL = 'abcde', TRAPS = 'wxyz';
+  function assemble(id, spec) {
+    var toks = spec.split(' '), segs = [['      ', '      ', ' P    ', '######', '######']], params = {}, nN = 0, nT = 0, nB = 0;
+    toks.forEach(function (tk) {
+      if (/^\d+$/.test(tk)) { segs.push(G(+tk)); return; }
+      var at = tk.split('@'), c = CH[at[0]], off = +(at[1] || 0), map = {};
+      c.s.forEach(function (seg) {
+        segs.push(seg.map(function (row) {
+          return row.replace(/[a-ewx-zA-EWX-Zkg]/g, function (ch) {
+            var lo = ch.toLowerCase();
+            if (lo === 'k' || lo === 'g') { if (!map.btn) map.btn = nB++ ? { k: 'q', g: 'r' } : { k: 'k', g: 'g' }; return map.btn[ch]; }
+            if (!map[lo]) map[lo] = NORMAL.indexOf(lo) >= 0 ? NORMAL[nN++] : TRAPS[nT++];
+            return ch === lo ? map[lo] : map[lo].toUpperCase();
+          });
+        }));
+      });
+      if (c.p) Object.keys(c.p).forEach(function (k) {
+        params[k] = params[k] || [];
+        c.p[k].forEach(function (q) { var o = Object.assign({}, q); o.phase = ((q.phase || 0) + off) % (q.period || 240); params[k].push(o); });
+      });
+    });
+    segs.push(['   F  ', '######', '######']);
+    var H = 0; segs.forEach(function (sg) { H = Math.max(H, sg.length); });
+    return { id: id, texts: {}, params: params, map: hcat(H + 3, segs) };
+  }
+  /* physics boss: a closed corridor where gravity flips by itself */
+  function corr(spec) {
+    var segs = [], CEIL = 2, OPEN = 6;
+    function box(w, f) {   // f(row, col) -> char or null
+      var rows = [];
+      for (var r = 0; r < CEIL + OPEN + 2; r++) {
+        var row = '';
+        for (var c = 0; c < w; c++) { var ch = f(r, c); row += ch != null ? ch : (r < CEIL || r >= CEIL + OPEN ? '#' : ' '); }
+        rows.push(row);
+      }
+      return rows;
+    }
+    var fl = CEIL + OPEN - 1, cl = CEIL;
+    segs.push(box(6, function (r, c) { return r === fl && c === 1 ? 'P' : null; }));
+    spec.split(' ').forEach(function (tk) {
+      var k = tk[0], n = +tk.slice(1) || 1;
+      if (k === 'n') segs.push(box(n, function () { return null; }));
+      else if (k === 'f') segs.push(box(n + 4, function (r, c) { return r === fl && c >= 2 && c < 2 + n ? '^' : null; }));
+      else if (k === 'c') segs.push(box(n + 4, function (r, c) { return r === cl && c >= 2 && c < 2 + n ? 'v' : null; }));
+      else if (k === 'F') segs.push(box(n + 4, function (r, c) { return r >= CEIL + OPEN && c >= 2 && c < 2 + n ? ' ' : null; }));
+      else if (k === 'C') segs.push(box(n + 4, function (r, c) { return r < CEIL && c >= 2 && c < 2 + n ? ' ' : null; }));
+      else if (k === 'o') segs.push(box(9, function (r, c) { return r === CEIL + 3 && c === 4 ? 'O' : r >= CEIL + OPEN && c >= 2 && c < 7 ? ' ' : r < CEIL && c >= 2 && c < 7 ? ' ' : null; }));
+    });
+    segs.push(box(6, function (r, c) { return r === fl && c === 3 ? 'F' : null; }));
+    return hcat(CEIL + OPEN + 2, segs);
+  }
+  /*BOSS*/ var BOSS = [
+    {"world":1,"boss":{"kind":"eraser","chase":7,"v":330,"amp":1,"per":240},"spec":"p4 2 sp1 2 sp2 2 pd0 2 sp3 3 tp1 2 sp3 3 sp2 2 pd1 3 p3 2 tp1 2 pd2 2 p5 3 tp2 3 pd2"},
+    {"world":2,"boss":{"kind":"pendulum","flip":180},"spec":"f1 F1 n3 o f1 c2 f2 F1 f2 c2 n2 n3 f1 c2 F3 C1 n4 o C2 f2 n2 F2 o c1 c1 f1"},
+    {"world":3,"boss":{"kind":"ink","chase":7,"v":330,"amp":1,"per":240},"spec":"dr2@140 3 dr3@40 3 pd2 2 g3 2 dr2@140 3 pd2 3 g1 3 st2@40 3 pd0 3 dr2@0 2 pd0 3 g2 3 pd2 2 st1@20 2 dr2@0"}
+  ]; /*BEND*/
+  /* world 1, levels 6-19: built by hand (the source with its helpers is test/drafts.js; test/hand.js checks and writes them) */
+  /*HAND1*/ var HAND1 = [
+    {"id":"h1-6","texts":{},"map":["                                                                         ","                                                                         ","                                                                         ","                                                                         ","                                                                         ","                                                                         ","                                                                         ","                                                                         ","      *                                                                  ","                  *                                    ###               ","                   ^     ##              *         ##  ###               "," P           ##  #####   ##  ##         ^^     ##  ##  ###  ##        F  ","######  ##   ##  #####   ##  ##   ##  ######   ##  ##  ###  ##   ########","######  ##   ##  #####   ##  ##   ##  ######   ##  ##  ###  ##   ########"]},
+    {"id":"h1-7","texts":{},"map":["                                                                             ","                                                                             ","                                                                             ","                                                                             ","                                                                             ","                                                 *                           ","                                                                             ","                                                                             ","                                            ##                               ","                                            ##                               ","                                            ##                               ","                                        S   ##                               ","                                      ##### ##                               ","                                *     ##### ##                               ","                                      ##### ##                               ","                                ^  S  ##### ##                S           F  ","                          ################# ##      ############^^^^^########","                     *    ################# ##      ############     ########","                          ################# ##      ############     ########","                       S  ################# ##      ############     ########","                     ###################### ##      ############     ########","                     ###################### ##      ############     ########","                     ###################### ##      ############     ########"," P      ^         S  ###################### ##      ############     ########","##########   ############################## ##      ############     ########","##########   ############################## ##      ############     ########"]},
+    {"id":"h1-14","texts":{},"map":["                                                  ","                                                  ","                                                  ","                                                  ","                                                  ","                                                  ","                                                  ","                                       *          ","                                                  ","                           *                      ","                          ^ T  S               F  ","                    ##############   ##   ########","                    ##############   ##   ########","                    ##############   ##   ########","                    ##############   ##   ########"," P      ^*   T  S  T##############   ##   ########","##################################   ##   ########","##################################   ##   ########"]},
+    {"id":"h1-17","texts":{},"map":["                                                                                                            ","                                                                                                            ","                                                                                                            ","                                                                                                            ","                                                  ############################                              ","                      a                           ############################                              ","                                                  vvvvvvvvvvvvvvvvvvvvvvvvvvvv                              ","                                                 *                            *                             ","                                      ##                                                   A                "," P      ^        ###      ^^     ##   ##  ##            ^^             ^ ^         ^^             ^^*    F  ","##########   ################    ##   ##  ##   ################   ####################    ##################","##########   ################    ##   ##  ##   ################   ####################    ##################"]},
+    {"id":"h1-15","texts":{},"map":["                                                                     ","                                                                     ","                                                                     ","                      ####                           ####            ","                      vvvv                           vvvv            ","                                                                     ","                               *                                     ","                                    X     w   W                      ","                     *                    *                          "," P                   T         x          ^         T             F  ","######       ]######################   #######   #########   ########","######       ]######################   #######   #########   ########","###########   ######################   #######   #########   ########","###########   ######################   #######   #########   ########"]},
+    {"id":"h1-10","texts":{},"map":["                                                                            ","                                                                            ","                                                                            ","                                                                            ","                                                                            ","          ###                   ###                        ###              ","          ###     *             ###                        ###              ","         a###    W             x###    X                  c###    Y         ","          ###                   ###                        ###              "," P       w### A             ^* b### B    *            y    ### C         F  ","#################   ###################   ###   ##################   #######","#################   ###################   ###   ##################   #######"]},
+    {"id":"h1-12","texts":{},"map":["                                                                     ","                                                                     ","                                                                     ","                                                                     ","                                                                     ","                           *                                         ","                                                                     ","      *a               ####                         c   W            ","                A      ####  b       B                       C       "," P                   ######                  ^*   w               F  ","######         ############         ##############          #########","######         ############         ##############          #########"]},
+    {"id":"h1-13","texts":{},"map":["                                               ","                                               ","                                               ","                                            ###","                                            ###","              F                             ###","             ######             *          )###","             ########                      )###","   *     *   ##########                    )###"," P      ^   a############ A         ^      )###","##############################   ##############","##############################   ##############"]},
+    {"id":"h1-16","texts":{},"map":["          #############                   ","          #                               ","          #(                       *      ","          #(      ^*              ^   F   ","          #(  ###############   ##########","          #(         )#######   ##########","          #(    ^    )#######   ##########","          #########  )#######   ##########","          #(         )#######   ##########","          #(    ^    )#######   ##########","          #(  ###############   ##########","          #(         )#######   ##########","          #(         )#######   ##########","          #########  )#######   ##########","      *              )#######   ##########"," P   ^               )#######   ##########","#############################   ##########","#############################   ##########"]},
+    {"id":"h1-18","texts":{},"map":["                                                                                                              ","                                                                                                              ","                                                                                                              ","                                                                                                              ","                                                                                                              ","                                                                                   #                          ","                                                                                   #(                         ","                                                                                   #(                         ","                                              ###################                  #(   #######               ","                                    ^         ###################    ###           #(   #######            F  ","                                #######       vvvvvvvvvvvvvvvvvvv    ###           #(  )###########   ########","                                #######        *          *      *  a###    W      #(  )###########   ########","                    ##          #######                              ###               )###########   ########"," P      ^       ##  ##       S  #######            T       ^^       w### A             )###########   ########","##########   #####  ##   ##############   ##################################   ####################   ########","##########   #####  ##   ##############   ##################################   ####################   ########"]},
+    {"id":"h1-9","texts":{},"map":["          #############                   ","          #                               ","          #(                              ","          #(      ^                   F   ","          #(  ################   #########","          #(        *)########   #########","          #(         )########   #########","          ####* ###  )########   #########","          #(         )########   #########","          #(     ^   )########   #########","          #(  ################   #########","          #(   *     )########   #########","          #(   ^     )########   #########","          #########  )########   #########","                     )########   #########"," P    ^        ^     )########   #########","##############################   #########","##############################   #########"]},
+    {"id":"h1-19","texts":{},"map":["                                                                ","                                                                ","                                                                ","                                                                ","                                                                ","                                                  *             ","                              ###############                   ","                              ###############      ##           ","                              vvvvvvvvvvvvvvv      ##        F  ","       *              ##                           ##    #######","                  ##  ## *                         ##    #######"," P    ^^     ##   ##  ##          ^ ^          S   ##    #######","#########    ##   ##  ##   ############   ######## ##    #######","#########    ##   ##  ##   ############   ######## ##    #######"]},
+    {"id":"h1-11","texts":{},"map":["                                                                             ","                                                                             ","                                                                             ","                                                                             ","      #######################################################             F  ","      #######################################################       #########","      vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv       #########","          *       *               *                                 #########","                                                                    #########"," P          T       ^       T T             TT       ^ T        S   #########","####################################  #######################################","####################################  #######################################"]},
+    {"id":"h1-8","texts":{},"map":["                                                                                          ","                                                                                          ","                                                                                          ","                                                                                          ","      #################################################################                   ","      #################################################################                   ","      vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv                   ","           *                                                    *                         ","                                    *                                                     "," P          ^       ^^             ^ ^            ^  ^           ^^             ^      F  ","###########################  ##############   #############  #############################","###########################  ##############   #############  #############################"]}
+  ]; /*HEND*/
+  /*HAND2*/ var HAND2 = [
+    {"id":"h2-6","texts":{},"params":{},"map":["                                           ","                                           ","      ##############################       ","      ##############################       ","                 v*     v*  N              ","                                           ","                                           ","                                           ","                                           "," P       U                        ^*    F  ","############              #################","############              #################"]},
+    {"id":"h2-9","texts":{},"params":{},"map":["                                                         ","                                                         ","      #############################   ############       ","      #############################   ############       ","               v   N   vvvv               N              ","                *                                        ","                                                         ","                                                         ","                                                *        "," P      U   ^^^^         ^*   U  ^^^^^^^       ^      F  ","#########################################################","#########################################################"]},
+    {"id":"h2-8","texts":{},"params":{},"map":["                                                    ","                                                    ","                                                    ","                                                    ","                                                    ","                     *                              ","              *                                     ","                                                    ","                   ==  #### ==                      ","               ==      ####     ==                  ","           ==          ####         ==              "," P     ==              ####                ^*    F  ","######                 ####            #############","######                 ####            #############"]},
+    {"id":"h2-18","texts":{},"params":{"R":[{"w":3,"dx":4,"dy":0,"period":240,"phase":0}],"J":[{"len":1.6,"period":180,"phase":60}],"K":[{"len":2.6,"period":240,"phase":40,"dir":1}]},"map":["                                                                                        ","                                                                                        ","                                                                                        ","                                                                                        ","                                                       ##################               ","                                                       ##################               ","                                                                v*    N                 ","                                                                                        ","                                                                             K          ","        O   O                   R                                          *            ","                        ==  ###        ###                 *                            "," P                  ==      ###        ###         J     U  ^^^^^^^^                 F  ","######         ####         ###        ###  ############################################","######         ####         ###        ###  ############################################"]},
+    {"id":"h2-12","texts":{},"params":{},"map":["                                                           ","                                                           ","                                                           ","              *                                            ","                     ###  ######               ######      ","                     vvv  vvvvvv               vvvvvv      ","                             *     O             *         ","        O   O         Q    Q           O        Q          ","                                                           "," P                                             ^^       F  ","######         ###########   ####         #################","######         ###########   ####         #################"]},
+    {"id":"h2-11","texts":{},"params":{"J":[{"len":1.6,"period":180,"phase":0},{"len":1.6,"period":180,"phase":90},{"len":1.6,"period":180,"phase":30},{"len":1.6,"period":180,"phase":120}]},"map":["                                             ","                                             ","                                             ","                                             ","                                             ","                                             ","                     *     *                 "," P       J     J    J     J       *  ^    F  ","################################   ##########","################################   ##########"]},
+    {"id":"h2-10","texts":{},"params":{"R":[{"w":5,"dx":7,"dy":-4,"period":360,"phase":220},{"w":3,"dx":8,"dy":0,"period":480,"phase":60}]},"map":["                                                     ","                                                     ","                                                     ","                                                     ","                                                     ","                                                     ","                                    *                ","                    *                                ","                                                     ","                                         ^           ","               *      ##### R          ####          ","                      #####            ####       F  ","                      #####            ####   #######"," P                    #####            ####   #######","######### R           #####            ####   #######","#########             #####            ####   #######"]},
+    {"id":"h2-7","texts":{},"params":{},"map":["                                             ","                                             ","                                             ","                                             ","                                 *           ","                       *                     ","          *     O             O              ","            O       O             O          ","                                             "," P      ^                ^                F  ","##########             #####          #######","##########             #####          #######"]},
+    {"id":"h2-13","texts":{},"params":{"R":[{"w":3,"dx":3,"dy":0,"period":240,"phase":0},{"w":3,"dx":-3,"dy":0,"period":240,"phase":0},{"w":3,"dx":0,"dy":-2,"period":240,"phase":60}]},"map":["                                                   ","                                                   ","                                      *            ","                                                   ","                                   O               ","                                O                  ","        *               *                          "," P                          ^           ^       F  ","###### R      R      R    ####        ####   ######","######                    ####        ####   ######"]},
+    {"id":"h2-17","texts":{},"params":{"K":[{"len":2.2,"period":240,"phase":0,"dir":1},{"len":2.2,"period":240,"phase":120,"dir":-1}]},"map":["                                           ","                                           ","                                           ","              K                            ","                *                          ","                                           ","                           O               ","         * O    O        *      O          ","                                           "," P                    ^                 F  ","#########           #####     K     #######","#########           #####           #######"]},
+    {"id":"h2-14","texts":{},"params":{"K":[{"len":2.6,"period":240,"phase":0,"dir":1},{"len":2.6,"period":240,"phase":80,"dir":-1},{"len":2.6,"period":240,"phase":160,"dir":1}]},"map":["                                            ","                                            ","                                            ","                                            ","           K     * K       K      *         ","                                            ","           *                                "," P             ^       ^                 F  ","##################################   #######","##################################   #######"]},
+    {"id":"h2-16","texts":{},"params":{"R":[{"w":3,"dx":8,"dy":0,"period":480,"phase":100}]},"map":["                                                   ","                                                   ","                        #####                      ","      ######            #####                      ","      ###### R                                     ","            *             N                        ","                                                   ","                     *                             ","                                                   ","                                       *           "," P       U  ^^^^^^^^^^^^       ^      ^^        F  ","##################################   ####   #######","##################################   ####   #######"]},
+    {"id":"h2-19","texts":{},"params":{"J":[{"len":1.6,"period":180,"phase":0}],"K":[{"len":2.6,"period":200,"phase":0,"dir":-1}]},"map":["                                                                  ","                                                                  ","                                ########  #######                 ","                                ########  #######                 ","          *                            v  v  *N                   ","                                                                  ","       O                                             K            ","          O                     *                                 ","                                                                  "," P                 J    ==  ==    U  ^^^^^^^                   F  ","#####        ##########         #########################   ######","#####        ##########         #########################   ######"]},
+    {"id":"h2-15","texts":{},"params":{},"map":["                                                    ","                                                    ","      #######          #######        #######       ","      #######          #######        #######       ","                                         N          ","               O                   O                ","                   O            O                   ","   *                                                ","                *                     *             "," P       U   ^^^^^^^^^^                          F  ","####################################################","####################################################"]}
+  ]; /*HEND*/
+  /*HAND3*/ var HAND3 = []; /*HEND*/
+  /*PAGES*/ var PAGES = [
+    [1,1,"p3 5 pd0 5 s1 5 p4"],
+    [1,1,"pd0 5 p4 5 sp2 5 stair"],
+    [1,1,"pd0 5 s1 4 sp1 4 s2"],
+    [1,1,"sp1 5 tpP 5 sp1 5 sp2"],
+    [1,1,"p3 5 pd0 4 tp1 4 p4"],
+    [1,1,"tpP 4 tp1 5 p3 5 stair"],
+    [1,1,"tp1 5 stair 5 p4 4 stair"],
+    [1,2,"sp1 4 tpT 3 tun 3 p4 3 p5"],
+    [1,2,"pd1 4 p5 4 tun 4 s3 4 pd1"],
+    [1,2,"sp1 3 p5 3 blk 3 tp2 4 tp1"],
+    [1,2,"sp1 4 tp2 4 spT 4 tun 4 pd0"],
+    [1,2,"p3 3 blk 4 p4 3 spT 4 tun"],
+    [1,2,"pd2 3 p5 3 sp1 4 p5 4 s3"],
+    [1,2,"sp2 4 tp2 3 sp3 3 pd0 4 p5"],
+    [1,3,"s1 3 p5 3 tpP 2 sp2 3 s2 2 p5"],
+    [1,3,"bo2 2 tpX 2 stair 3 pd2 2 sp1 2 s2"],
+    [1,3,"tpP 2 spC 3 p4 2 spC 3 pd1 3 bo2"],
+    [1,3,"bo2 3 p5 3 tpP 2 tp2 2 pd0 2 tun"],
+    [1,3,"blk 3 sp2 2 s3 3 s2 2 stair 3 pd1"],
+    [1,3,"spC 2 tp2 2 stair 3 tpT 3 bo2 2 sp2"],
+    [1,3,"tp2 2 spT 3 sp1 3 sp3 3 sp1 2 pd1"],
+    [2,1,"r1 5 j1@120 4 fl1 4 sp2"],
+    [2,1,"fl1 5 l1 5 l2 4 p3"],
+    [2,1,"s2 5 pd0 5 l1 5 j1@140"],
+    [2,1,"s1 5 l2 5 sp1 4 s2"],
+    [2,1,"l1 5 fl1 5 pd0 4 l2"],
+    [2,1,"j1@20 5 r1 4 pd0 5 r1"],
+    [2,1,"r1 4 l2 4 pd0 4 p4"],
+    [2,2,"m2@0 3 rT 3 m2@100 3 pd2 3 sp1"],
+    [2,2,"r2 3 pd1 4 s1 3 l1 4 pd1"],
+    [2,2,"r2 4 s2 3 fl1 3 rT 4 l3"],
+    [2,2,"m1@80 4 l2 3 l3 3 pd2 4 fl2"],
+    [2,2,"fl1 3 s1 3 blk 4 l1 3 l3"],
+    [2,2,"l1 4 m1@80 3 fl1 3 r1 3 r2"],
+    [2,2,"k1@40 3 l2 4 r1 3 l1 3 pd1"],
+    [2,3,"m1@180 3 m2@20 3 l2 2 flT 2 s1 3 pd2"],
+    [2,3,"blk 2 m1@140 2 fl1 2 pd0 2 r1 3 pd2"],
+    [2,3,"r3 3 l1 3 r2 3 r3 3 pd1 2 fl3"],
+    [2,3,"r1 3 bo2 2 l1 3 j1@20 2 flT 3 m1@220"],
+    [2,3,"fl1 2 blk 2 m1@120 3 pd1 2 fl3 3 r3"],
+    [2,3,"p5 2 m2@180 3 l1 2 sp2 2 fl2 2 r2"],
+    [2,3,"pd1 2 m2@200 2 pd2 3 k2@160 3 j1@120 2 r3"],
+    [3,1,"h1 4 c1 5 pd0 5 h1"],
+    [3,1,"pd0 4 p3 5 pd0 4 blk"],
+    [3,1,"p3 5 pd0 5 gt1 5 pd0"],
+    [3,1,"stair 4 c1 4 pd0 5 g2"],
+    [3,1,"g2 4 h1 5 st1@20 5 tp1"],
+    [3,1,"stair 5 c1 5 g1 4 l1"],
+    [3,1,"g1 4 gt1 4 st1@20 5 s2"],
+    [3,2,"gt1 3 m2@220 4 gt2 3 bt2 3 cT"],
+    [3,2,"l2 3 pd0 4 g2 4 h2 4 pd2"],
+    [3,2,"g1 4 h2 3 c1 3 st2@180 3 pd0"],
+    [3,2,"j1@160 4 st1@120 3 h2 3 pd1 3 h2"],
+    [3,2,"r1 3 bt2 4 g1 3 gt2 3 c1"],
+    [3,2,"h2 3 pd0 4 pd2 3 gt1 3 st1@200"],
+    [3,2,"cT 4 h1 4 pd1 4 p4 4 st3@40"],
+    [3,3,"pd1 3 c1 3 l1 2 pd2 2 h2 2 j1@40"],
+    [3,3,"h1 2 gt1 3 c1 3 s2 2 m2@180 2 g1"],
+    [3,3,"g2 2 g3 2 h1 3 st2@220 3 st4@40 2 g1"],
+    [3,3,"g2 2 s1 2 pd1 2 l1 3 st4@160 2 s1"],
+    [3,3,"cT 2 bt3 2 g1 2 c1 2 st2@140 2 g3"],
+    [3,3,"c1 2 h2 3 h1 3 pd2 2 st2@220 2 pd2"],
+    [3,3,"gt2 3 h1 2 bt3 3 st4@160 2 cT 2 pd0"]
+  ]; /*PEND*/
+  /*SPECS*/ var SPECS = [
+    [1, "s1 6 stair 4 blk 6 p3 4 blk"],
+    [1, "s2 6 s1 5 tpP 4 sp1 6 p3"],
+    [1, "p4 5 tp1 4 sp2 4 s2 5 p4 6 blk"],
+    [1, "sp1 3 s2 5 sp1 4 sp2 5 stair 4 p3"],
+    [1, "spT 3 sp3 3 tpT 4 sp3 3 s3 5 s2 3 pd1"],
+    [1, "sp3 3 tun 5 tp1 5 s3 4 tun 3 tp2 3 p5"],
+    [1, "tpT 5 sp3 4 s1 3 boT 3 sp2 3 tun 5 s3"],
+    [1, "s3 3 tun 3 boT 2 spT 3 s3 4 sp3 4 stair 2 p4"],
+    [1, "tun 3 s3 2 tpP 3 sp3 2 tun 2 s3 4 p5 2 boT 3 pd2"],
+    [1, "bo2 4 s3 2 tun 2 bo2 3 s3 4 bo2 3 sp2 4 bo2"],
+    [1, "s2 3 bo2 4 spC 3 bo2 4 tp2 2 sp1 2 p3 3 tp2 4 stair"],
+    [1, "tp1 2 sp2 2 sp3 2 spC 2 sp3 2 bo2 3 stair 2 bo2 2 sp3"],
+    [1, "bo2 3 sp1 3 blk 2 spC 3 tpX 3 bo2 3 spC 3 s3 2 blk 3 pd1"],
+    [1, "tpX 2 bo2 2 tpX 3 bo2 2 sp3 2 tp1 2 spC 3 bo2 2 spC 2 s1"],
+    [2, "j1@40 6 sp2 6 j1@100 5 fl1 6 l1"],
+    [2, "r1 4 tp1 5 fl1 4 l1 5 stair"],
+    [2, "j1@60 6 r1 5 blk 6 l1 6 fl1 5 l2"],
+    [2, "r1 5 l1 4 r1 4 l2 4 l1 4 fl1"],
+    [2, "j1@120 4 rT 4 m2@20 5 m1@80 5 flT 5 m1@180 3 pd1"],
+    [2, "k1@120 5 m1@180 4 sp2 5 m1@40 4 s2 3 flT 4 stair"],
+    [2, "fl2 5 r1 5 p4 3 k1@120 3 sp1 4 r2 5 r3"],
+    [2, "m2@40 4 fl2 3 sp2 3 l1 3 fl2 4 blk 4 fl1 2 r2"],
+    [2, "r3 3 l2 2 fl2 2 r2 3 l2 4 k1@120 2 r3 4 k1@40 3 pd2"],
+    [2, "r2 4 fl3 2 k2@120 4 fl3 4 k2@140 2 fl3 4 r1 4 k2@80"],
+    [2, "stair 4 tp1 4 j1@0 4 k2@140 3 fl3 3 s1 4 r1 2 tp1 3 k2@60"],
+    [2, "m2@220 2 l3 3 p3 4 k2@200 4 fl3 2 m1@160 3 fl3 2 k2@0 2 fl2"],
+    [2, "tp1 2 l2 2 fl3 2 k2@200 2 fl3 2 r2 2 k2@140 3 fl2 2 r2 3 pd1"],
+    [2, "fl3 2 l1 2 k2@0 2 fl3 3 tp1 2 k2@160 2 m2@160 3 l2 2 fl3 2 k2@140"],
+    [3, "p3 5 gt1 6 s1 4 g2 6 st1@40"],
+    [3, "g2 6 g1 4 st1@200 6 c1 4 fl1"],
+    [3, "g1 4 h1 4 c1 6 fl1 4 h1 5 tp1"],
+    [3, "l2 4 j1@120 4 g1 4 c1 4 h1 5 st1@0"],
+    [3, "st3@120 3 h2 3 bt2 5 s1 5 p3 3 r1 3 pd1"],
+    [3, "g3 3 s1 5 gt2 3 bt2 4 g2 3 j1@160 3 sp1"],
+    [3, "st3@200 4 g3 3 blk 5 sp2 3 g2 5 sp1 3 h3"],
+    [3, "bt2 3 fl1 4 bt2 4 l2 2 gt2 3 st3@40 4 r1 4 c1"],
+    [3, "g1 3 h2 2 cT 3 h2 4 bt2 4 st3@20 3 g1 3 g3 3 pd2"],
+    [3, "bt3 3 gt1 4 bt3 2 h1 2 tp1 2 g3 4 st4@60 3 h2"],
+    [3, "bt3 3 sp1 3 l2 3 gt2 4 bt3 3 st4@160 3 c1 2 st4@100 3 st1@220"],
+    [3, "c1 4 sp1 2 bt3 4 st4@160 2 p4 4 h3 2 bt3 3 st4@180 3 gt1"],
+    [3, "bt3 3 tp1 2 p3 2 stair 2 st1@220 2 bt3 2 st4@100 3 l2 2 g2 3 pd1"],
+    [3, "j1@140 2 st4@200 2 s2 2 gt2 2 bt3 3 st4@200 3 bt3 3 st4@20 2 g2 2 l1"]
+  ]; /*END*/
+  /* stars for the five tutorial levels of world 1: [col, row] cells, placed on a checked route by test/stars5.js */
+  /*STAR5*/ var STAR5 = {"warmup":[[24,10],[52,10],[85,10]],"springs":[[24,11],[56,14],[100,14]],"walls":[[22,7],[35,10],[49,9]],"holes":[[29,8],[61,12],[88,12]],"quiz":[[47,9],[55,12],[53,12]],"flip":[[26,3],[45,2],[80,3]],"rings":[[27,11],[50,10],[76,10]],"lines":[[16,10],[33,10],[49,9]],"blades":[[29,8],[44,10],[57,8]],"exam1":[[29,9],[56,5],[88,8]]}; /*SEND*/
+  levels.forEach(function (lv) {
+    (STAR5[lv.id] || []).forEach(function (q) { var r = lv.map[q[1]]; lv.map[q[1]] = r.slice(0, q[0]) + '*' + r.slice(q[0] + 1); });
+  });
+  var out = [];
+  for (var w = 0; w < 3; w++) {
+    for (var i = 0; i < 5; i++) { levels[w * 5 + i].world = w + 1; out.push(levels[w * 5 + i]); }
+    var HAND = [HAND1, HAND2, HAND3][w];
+    if (HAND.length) HAND.forEach(function (lv) { lv.world = w + 1; lv.texts = lv.texts || {}; out.push(lv); });
+    else SPECS.filter(function (sp) { return sp[0] === w + 1; }).forEach(function (sp, n) {
+      var lv = assemble('w' + (w + 1) + '-' + (n + 6), sp[1]); lv.world = w + 1; out.push(lv);
+    });
+    BOSS.filter(function (b) { return b.world === w + 1; }).forEach(function (b) { out.push(bossLevel(b)); });
+  }
+  out.CH = CH; out.assemble = assemble; out.bossLevel = bossLevel; out.PAGES = PAGES; out.tools = { hcat: hcat, G: G, PIT: PIT, rep: rep };
+  return out;
+});
+
+</script>
+<script>
+/* Game shell: rendering, input, camera, sound, menus. Browser only. */
+(function () {
+  'use strict';
+  const E = window.Engine, T = E.T, CFG = E.CFG;
+  const LEVELS = window.Levels.map(E.parseLevel);
+  LEVELS.forEach((lv, i) => { lv.world = window.Levels[i].world || 1; });
+  const WORLDS = [1, 2, 3].map((w) => LEVELS.map((lv, i) => i).filter((i) => LEVELS[i].world === w));
+  const WNAME = ['Math', 'Physics', 'Art'];
+  const UNLOCK = 14;   // levels passed in a world to open the next one
+  const wOf = (i) => LEVELS[i].world - 1, nOf = (i) => WORLDS[wOf(i)].indexOf(i) + 1;
+  const tag = (i) => LEVELS[i].boss ? 'Boss ' + (wOf(i) + 1) : (wOf(i) + 1) + '-' + nOf(i);
+  const starsOf = (d, lv) => !d ? 0 : lv && lv.stars.length ? Math.min(3, d.stars || 0) : d.deaths === 0 ? 3 : d.deaths <= 3 ? 2 : 1;
+  const bits = (n) => { let k = 0; for (; n; n >>= 1) k += n & 1; return k; };
+  const starStr = (n) => '★★★'.slice(0, n) + '☆☆☆'.slice(0, 3 - n);
+  const wStars = (w) => WORLDS[w].reduce((a, i) => a + starsOf(store.done[LEVELS[i].id], LEVELS[i]), 0);
+  const passed = (w) => WORLDS[w].filter((i) => !LEVELS[i].boss && store.done[LEVELS[i].id]).length;
+  const OPEN_ALL = true;   // temporary: everything unlocked for testing
+  const open = (w) => OPEN_ALL || w === 0 || passed(w - 1) >= UNLOCK;
+  let menuWorld = -1;
+  const $ = (id) => document.getElementById(id);
+  const stage = $('stage'), canvas = $('game');
+  let ctx = canvas.getContext('2d');
+  const menuEl = $('menu'), doneEl = $('done'), hudEl = $('hud');
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const css = getComputedStyle(document.documentElement);
+  const tok = (n) => css.getPropertyValue(n).trim();
+  // dark mode is a saved choice (on by default); light mode is the original notebook colors
+  let DARK = true;
+  try { const raw0 = JSON.parse(localStorage.getItem('sharbut.v1') || '{}'); if (raw0 && raw0.dark === false) DARK = false; } catch (e) {}
+  document.documentElement.dataset.theme = DARK ? 'dark' : 'light';
+  const C = {};
+  function readColors() {
+    ['paper', 'rule', 'margin', 'ink', 'pencil', 'red', 'green', 'star', 'hole'].forEach((k) => { C[k] = tok('--' + k); });
+  }
+  readColors();
+  const FONT = tok('--font-hand');
+  let GLUE, PAIR, DOORC, RULER, PADC, GOLD;
+  function themeColors() {
+    GLUE = DARK ? 'rgba(255, 214, 60, 0.6)' : 'rgba(226, 178, 52, 0.5)';
+    PAIR = DARK ? ['#b86bff', '#ff9a2e', '#19f5e0', '#ff4fc0', '#e8ff3a'] : ['#7b3fc4', '#e07b12', '#0b8f8a', '#d43a8c', '#806a10'];
+    DOORC = DARK ? { 1: '#19f5e0', 2: '#ff4fc0' } : { 1: '#0b8f8a', 2: '#d43a8c' };
+    RULER = DARK ? '#3a3416' : '#f7e6a6';
+    PADC = DARK ? '#ff9a2e' : '#e07b12';
+    GOLD = DARK ? '#ffe14a' : '#d79a00';
+  }
+  themeColors();
+  let goo = [];
+  // one color per teleport pair: a hole and its exit always match (dots repeat the pairing without color)
+  const pairColor = (k) => PAIR[(L.pair[k] || 0) % PAIR.length];
+
+  /* ---------- saved progress (one viewer's convenience; the game works without it) ---------- */
+  let store = { done: {}, muted: false };
+  try {
+    const raw = localStorage.getItem('sharbut.v1');
+    if (raw) store = Object.assign(store, JSON.parse(raw));
+  } catch (e) { /* storage unavailable */ }
+  store.skin = Object.assign({ hat: 'none', pen: 'cyan' }, store.skin || {});
+  store.blots = store.blots || 0;
+  function stats() {
+    const st = { passed: 0, clean: 0, w: [0, 0, 0], cw: [0, 0, 0], blots: store.blots };
+    LEVELS.forEach((lv) => { const d = store.done[lv.id]; if (!d) return; st.passed++; st.w[lv.world - 1]++; if (d.deaths === 0) { st.clean++; st.cw[lv.world - 1]++; } });
+    return st;
+  }
+  const HATS = [
+    { id: 'none', name: 'Plain' },
+    { id: 'cap', name: 'Cap', hint: 'pass 5 levels', ok: (t) => t.passed >= 5 },
+    { id: 'shades', name: 'Shades', hint: '10 clean pages', ok: (t) => t.clean >= 10 },
+    { id: 'horns', name: 'Horns', hint: '100 daubs in total', ok: (t) => t.blots >= 100 },
+    { id: 'crown', name: 'Crown', hint: 'finish world 1', ok: (t) => t.w[0] >= 20 },
+    { id: 'antenna', name: 'Antenna', hint: 'finish world 2', ok: (t) => t.w[1] >= 20 },
+    { id: 'tophat', name: 'Top hat', hint: 'finish world 3', ok: (t) => t.w[2] >= 20 },
+    { id: 'halo', name: 'Halo', hint: '30 clean pages', ok: (t) => t.clean >= 30 }
+  ];
+  const PENS = [
+    { id: 'cyan', name: 'Ink pen', col: C.ink },
+    { id: 'lime', name: 'Lime pen', col: '#39ff88', hint: '5 clean pages', ok: (t) => t.clean >= 5 },
+    { id: 'pink', name: 'Pink pen', col: '#ff4fc0', hint: 'pass 10 levels', ok: (t) => t.passed >= 10 },
+    { id: 'orange', name: 'Orange pen', col: '#ff9a2e', hint: '50 daubs in total', ok: (t) => t.blots >= 50 },
+    { id: 'violet', name: 'Violet pen', col: '#b86bff', hint: 'pass 30 levels', ok: (t) => t.passed >= 30 },
+    { id: 'gold', name: 'Gold pen', col: '#ffe14a', hint: 'pass all 60', ok: (t) => t.passed >= 60 },
+    { id: 'white', name: 'White pen', col: '#f2f4ff', hint: 'all 60 clean', ok: (t) => t.clean >= 60 }
+  ];
+  const have = (it, t) => !it.ok || it.ok(t);
+  const unlockedNames = (t) => HATS.concat(PENS).filter((it) => have(it, t)).map((it) => it.name);
+  let PEN = C.ink;
+  function applySkin() {
+    const t = stats();
+    if (!have(HATS.find((h) => h.id === store.skin.hat) || {}, t)) store.skin.hat = 'none';
+    const p = PENS.find((q) => q.id === store.skin.pen);
+    if (!p || !have(p, t)) store.skin.pen = 'cyan';
+    PEN = PENS.find((q) => q.id === store.skin.pen).col;
+  }
+  applySkin();
+  function save() { try { localStorage.setItem('sharbut.v1', JSON.stringify(store)); } catch (e) { /* ignore */ } }
+
+  /* ---------- sound: tiny synth, created on the first tap ---------- */
+  let ac = null, bus = null, muff = null, master = null;
+  // everything sounds muffled, as if under water, inside a highlighter zone (the zones where gravity almost goes away)
+  const MUFF_Q = 0.7, HUMV = /*HUMV*/0.086/*END*/;
+  let hum = null, gk = 1, dry = false;   // gk: loudness trim of the sound being played; dry: skip the muffle
+  function underwater(on) {
+    if (!ac || !muff) return;
+    try {
+      muff.frequency.setTargetAtTime(on ? 420 : 20000, ac.currentTime, on ? 0.06 : 0.12);
+      muff.Q.setTargetAtTime(on ? 4 : MUFF_Q, ac.currentTime, 0.08);   // a resonant, "boxed in" muffle
+    } catch (e) { /* ignore */ }
+    zoneHum(on && !store.muted);
+  }
+  // the sound of having your head under water: a deep pressing rumble that swells like waves,
+  // a gurgling mid band, and the whole mix swaying through the moving water
+  function zoneHum(on) {
+    const a = ac; if (!a) return;
+    try {
+      if (on && !hum) {
+        const t = a.currentTime, dst = master || a.destination;
+        const src = a.createBufferSource(); src.buffer = noiseOf(a); src.loop = true;
+        const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260; lp.Q.value = 1.2;
+        const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 2.2;
+        const lpG = a.createGain(); lpG.gain.value = 1.6;
+        const g = a.createGain();
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(HUMV * 1.7, t + 0.3);
+        src.connect(lp); lp.connect(lpG); lpG.connect(g); src.connect(bp); bp.connect(g); g.connect(dst);
+        // slow swell of the water
+        const swell = a.createOscillator(), swG = a.createGain();
+        swell.type = 'sine'; swell.frequency.value = 0.23; swG.gain.value = HUMV * 0.8; swell.connect(swG); swG.connect(g.gain);
+        // the gurgle band wanders up and down
+        const gur = a.createOscillator(), gurG = a.createGain();
+        gur.type = 'sine'; gur.frequency.value = 0.7; gurG.gain.value = 220; gur.connect(gurG); gurG.connect(bp.frequency);
+        // the muffle on everything else sways too
+        const wob = a.createOscillator(), wobG = a.createGain();
+        wob.type = 'sine'; wob.frequency.value = 0.45; wobG.gain.value = 130; wob.connect(wobG); if (muff) wobG.connect(muff.frequency);
+        // a very low throb, the pressure in your ears
+        const thr = a.createOscillator(), thrG = a.createGain();
+        thr.type = 'sine'; thr.frequency.value = 55; thrG.gain.value = HUMV * 0.5; thr.connect(thrG); thrG.connect(g);
+        [src, swell, gur, wob, thr].forEach((n) => n.start(t));
+        hum = { a: a, g: g, wobG: wobG, nodes: [src, swell, gur, wob, thr] };
+      } else if (!on && hum) {
+        const h = hum; hum = null; const t = h.a.currentTime;
+        h.g.gain.cancelScheduledValues(t); h.g.gain.setValueAtTime(Math.max(0.0001, h.g.gain.value), t); h.g.gain.setTargetAtTime(0.0001, t, 0.06);
+        h.wobG.gain.setTargetAtTime(0, t, 0.05);
+        h.nodes.forEach((n) => n.stop(t + 0.45));
+        setTimeout(() => { try { h.wobG.disconnect(); } catch (e) { /* ignore */ } }, 600);
+      }
+    } catch (e) { hum = null; }
+  }
+  const out = (a) => (dry || !bus ? (master || a.destination) : bus);
+  function audio() {
+    if (store.muted) return null;
+    if (!ac) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        // a gentle limiter at the end, so obstacle sounds can be loud and clear without crackling
+        master = ac.createDynamicsCompressor();
+        master.threshold.value = -10; master.knee.value = 8; master.ratio.value = 6; master.attack.value = 0.003; master.release.value = 0.15;
+        master.connect(ac.destination);
+        muff = ac.createBiquadFilter(); muff.type = 'lowpass'; muff.frequency.value = 20000; muff.Q.value = MUFF_Q;
+        bus = ac.createGain(); bus.connect(muff); muff.connect(master);
+      } catch (e) { ac = null; }
+    }
+    if (ac && ac.state === 'suspended') { try { ac.resume().catch(function () {}); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(f1, f2, dur, type, vol, delay) {
+    const a = audio(); if (!a) return;
+    try {
+      const t0 = a.currentTime + (delay || 0);
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = type || 'triangle';
+      o.frequency.setValueAtTime(f1, t0);
+      o.frequency.exponentialRampToValueAtTime(Math.max(30, f2), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime((vol || 0.08) * gk, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(out(a));
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* ignore */ }
+  }
+  // a coil spring: a wobbling pitch that rises and rings out (two partials, so a small speaker carries it)
+  function boing(vol, base, len) {
+    const a = audio(); if (!a) return;
+    try {
+      const t0 = a.currentTime, lfo = a.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.setValueAtTime(24, t0); lfo.frequency.linearRampToValueAtTime(9, t0 + len);
+      [[1, 1, 'sine'], [2, 0.45, 'triangle']].forEach((q) => {
+        const o = a.createOscillator(), depth = a.createGain(), g = a.createGain(), f0 = base * q[0];
+        o.type = q[2]; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 2.2, t0 + len);
+        depth.gain.setValueAtTime(f0 * 0.3, t0); depth.gain.exponentialRampToValueAtTime(f0 * 0.04, t0 + len);
+        lfo.connect(depth); depth.connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol * q[1] * gk, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+        o.connect(g); g.connect(out(a)); o.start(t0); o.stop(t0 + len + 0.02);
+      });
+      lfo.start(t0); lfo.stop(t0 + len + 0.02);
+    } catch (e) { /* ignore */ }
+  }
+  // filtered noise: paper, scratching, rubbing
+  const KICKV = /*KICKV*/0.2/*END*/, HATV = /*HATV*/0.2/*END*/;
+  let noiseBuf = null;
+  function noiseOf(a) {
+    if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    return noiseBuf;
+  }
+  function noise(dur, vol, freq, q, delay, sweepTo) {
+    const a = audio(); if (!a) return;
+    try {
+      const t0 = a.currentTime + (delay || 0), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      src.buffer = noiseOf(a); f.type = 'bandpass'; f.frequency.setValueAtTime(freq || 1500, t0); f.Q.value = q || 1.2;
+      if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol * gk, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(f); f.connect(g); g.connect(out(a)); src.start(t0, Math.random() * 1.5); src.stop(t0 + dur + 0.02);
+    } catch (e) { /* ignore */ }
+  }
+  /* ---------- music: a soft looping tune per notebook ---------- */
+  const SONG = [
+    { bpm: 112, root: 261.6, scale: [0, 2, 4, 7, 9, 12, 14, 16], mel: [0, 2, 4, 2, 5, 4, 2, 1, 0, 2, 4, 5, 7, 5, 4, 2], bass: [0, 0, 5, 3], wave: 'triangle' },
+    { bpm: 96, root: 220, scale: [0, 2, 3, 5, 7, 8, 10, 12], mel: [0, 4, 2, 4, 5, 4, 2, 0, 3, 4, 7, 4, 5, 4, 2, 4], bass: [0, 5, 3, 4], wave: 'sine' },
+    { bpm: 104, root: 293.7, scale: [0, 2, 4, 6, 7, 9, 11, 12], mel: [4, 2, 0, 2, 4, 4, 5, -1, 4, 6, 7, 6, 4, 2, 0, -1], bass: [0, 3, 5, 4], wave: 'triangle' }
+  ];
+  // the tune follows the level's own clock (120 bpm = 60 ticks a beat), so moving obstacles land on the beat
+  // and the tune restarts with every respawn
+  function musicStep(n) {
+    if (!ac || store.muted || store.music === false) return;
+    const sg = SONG[(L.world || 1) - 1], step = 0.25, f = (k) => sg.root * Math.pow(2, sg.scale[k % 8] / 12 + Math.floor(k / 8));
+    if (L.boss) {   // boss music: a slow, low phrygian line doubled in octaves over a throbbing drone
+      const bf = (k) => 196 * Math.pow(2, [0, 1, 3, 5, 7, 8, 10, 12][k % 8] / 12 + Math.floor(k / 8)), j = n % 32;
+      const line = [0, -1, 1, -1, 0, -1, 3, -1, 2, -1, 1, -1, 0, -1, -1, -1, 0, -1, 1, -1, 3, -1, 4, -1, 5, -1, 4, -1, 1, -1, 0, -1][j];
+      if (line >= 0) { const q = bf(line); tone(q, q * 0.99, 0.42, 'sawtooth', 0.04); tone(q * 2, q * 1.985, 0.42, 'square', 0.03); tone(q * 4, q * 3.97, 0.3, 'triangle', 0.035); }
+      if (j % 2 === 0) tone(j % 8 === 6 ? 208 : 196, j % 8 === 6 ? 206 : 194, 0.3, 'sawtooth', 0.03);
+      if (j % 4 === 0) { tone(420, 90, 0.16, 'triangle', KICKV * 1.3); noise(0.05, HATV, 2400, 0.8); }
+      if (j % 4 === 2) noise(0.03, HATV * 0.7, 6000, 1.5);
+      return;
+    }
+    const i = n % 16, m = sg.mel[i];
+    if (m >= 0 && (i % 2 === 0 || n % 32 >= 16)) tone(f(m) * 2, f(m) * 1.99, step * 1.6, 'triangle', 0.07);
+    if (i % 4 === 0) { const bf = f(sg.bass[(n >> 4) % 4]) / 2; tone(bf * 2, bf * 1.98, step * 3.5, 'triangle', 0.06); }
+    if (i % 2 === 0) { const kv = i % 4 === 0 ? 1 : 0.6; tone(460, 130, 0.1, 'triangle', KICKV * kv); noise(0.03, HATV * kv, 5200, 1.2); }
+  }
+  // Every sound is trimmed to sit at a set level next to a note of the music. The trims are measured,
+  // not guessed: test/sound-audit.js renders each sound and writes the TRIM table below.
+  const V = 0.07, V2 = V * 0.6;
+  const sfx = {
+    boost: () => { tone(300, 900, 0.3, 'sawtooth', V2); noise(0.3, V, 2500, 0.8); },
+    near: () => tone(900, 1500, 0.09, 'sine', V),
+    jump: () => tone(420, 760, 0.11, 'triangle', V),
+    glue: () => { tone(340, 170, 0.16, 'triangle', V); tone(760, 330, 0.12, 'triangle', V, 0.03); noise(0.14, V, 950, 2.5, 0, 500); },
+    spring: () => { boing(V, 380, 0.45); noise(0.05, V * 0.5, 2500, 1); },
+    corner: () => { noise(0.1, V, 3000, 0.7); boing(V, 560, 0.25); },
+    bounce: () => tone(520, 300, 0.12, 'square', V2),
+    teleport: () => { tone(1100, 320, 0.16, 'sine', V); tone(330, 1100, 0.16, 'sine', V, 0.12); },
+    die: () => { tone(440, 110, 0.28, 'sawtooth', V2); tone(220, 70, 0.3, 'square', V2 * 0.7); },
+    win: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.16, 'triangle', V, i * 0.09)); },
+    flip: (to) => tone(to < 0 ? 360 : 760, to < 0 ? 760 : 360, 0.18, 'triangle', V),
+    ring: () => { tone(620, 990, 0.1, 'triangle', V); tone(1240, 1980, 0.12, 'sine', V * 0.5, 0.04); },
+    button: () => { tone(880, 640, 0.07, 'square', V2); noise(0.18, V, 900, 1, 0.06); },
+    plank: () => noise(0.16, V, 2600, 2.2),
+    ride: () => { tone(620, 460, 0.07, 'triangle', V); noise(0.03, V * 0.5, 2500, 2); },
+    gate: () => noise(0.16, V, 1800, 0.9, 0, 900),
+    zoneIn: () => { underwater(true); noise(0.45, V, 2600, 0.9, 0, 450); tone(600, 220, 0.4, 'sine', V); tone(400, 900, 0.07, 'sine', V, 0.18); tone(520, 1100, 0.06, 'sine', V, 0.3); },
+    zoneOut: () => { underwater(false); noise(0.3, V, 500, 0.9, 0, 3000); tone(350, 900, 0.18, 'sine', V); },
+    bubble: () => {   // a little stream of rising bubbles, now and then a deep glub
+      const n = 2 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n; i++) { const f = 380 + Math.random() * 420; tone(f, f * 2.2, 0.06, 'sine', V, i * (0.05 + Math.random() * 0.05)); }
+      if (Math.random() < 0.3) { tone(150, 320, 0.14, 'sine', V * 1.3, 0.05); noise(0.12, V * 0.6, 300, 2, 0.05); }
+    },
+    // ---- each obstacle announces itself as it comes up ahead, with its own clear voice ----
+    cueSpike: (up) => { const f = up ? 2350 : 1980; tone(f, f * 1.04, 0.16, 'square', V2 * 0.6); tone(f * 1.5, f * 1.5, 0.22, 'sine', V); noise(0.06, V, 7000, 4); },
+    cueSpring: () => boing(V * 0.8, 520, 0.24),
+    cueCorner: () => { noise(0.07, V, 3800, 1.5); boing(V * 0.6, 760, 0.16); },
+    cueBouncer: () => { tone(700, 700, 0.05, 'square', V2); tone(940, 940, 0.06, 'square', V2, 0.08); },
+    cueTele: () => { [1175, 1480, 1760, 2350].forEach((f, i) => tone(f, f * 1.02, 0.1, 'sine', V * 0.8, i * 0.045)); },
+    cueRing: () => { tone(1568, 1560, 0.5, 'sine', V); tone(3136, 3120, 0.35, 'sine', V * 0.4); tone(4704, 4690, 0.2, 'sine', V * 0.2); },
+    cueFlip: (to) => { tone(to < 0 ? 220 : 880, to < 0 ? 880 : 220, 0.3, 'sine', V); noise(0.3, V * 0.6, to < 0 ? 600 : 3000, 1.2, 0, to < 0 ? 3000 : 600); },
+    cueGlue: () => { tone(190, 110, 0.18, 'sawtooth', V2 * 0.7); noise(0.2, V, 420, 3, 0, 260); },
+    cueButton: () => { tone(1250, 1250, 0.03, 'square', V2); tone(1250, 1250, 0.03, 'square', V2, 0.09); },
+    cueStar: () => { tone(2093, 2093, 0.07, 'triangle', V * 0.8); tone(2637, 2637, 0.07, 'triangle', V * 0.8, 0.06); tone(3136, 3136, 0.12, 'triangle', V * 0.8, 0.12); },
+    cuePencil: () => noise(0.2, V, 3200, 4, 0, 4200),
+    cueGate: () => { tone(260, 190, 0.07, 'triangle', V); tone(260, 190, 0.07, 'triangle', V, 0.11); },
+    cueDoor: () => { tone(160, 150, 0.2, 'square', V2 * 0.7); noise(0.1, V, 900, 1.5); },
+    cueFinish: () => { [784, 988, 1175].forEach((f, i) => tone(f, f, 0.12, 'triangle', V * 0.8, i * 0.07)); },
+    land: () => noise(0.08, V, 650, 1),
+    glueLand: () => { noise(0.16, V, 1200, 2, 0, 600); tone(460, 230, 0.14, 'triangle', V); },
+    step: () => noise(0.03, V, 1300, 1.5),
+    tick: () => { tone(900, 420, 0.16, 'square', V2); noise(0.12, V, 1800, 0.8); tone(1800, 1700, 0.05, 'square', V2); },
+    tock: () => { tone(640, 300, 0.18, 'square', V2); noise(0.12, V, 1300, 0.8); tone(1300, 1200, 0.05, 'square', V2); },
+    gong: () => { tone(330, 150, 0.5, 'sawtooth', V2); tone(495, 240, 0.4, 'square', V2 * 0.6); noise(0.25, V, 900, 0.6); },
+    gurgle: (k) => { for (let i = 0; i < 3; i++) { const f = 300 + Math.random() * 300; tone(f, f * 1.8, 0.07, 'sine', V * k, i * 0.06); } noise(0.2, V * 0.6 * k, 650, 1.5); },
+    rulerTurn: (k) => { tone(760, 540, 0.06, 'triangle', V * k); noise(0.03, V * 0.5 * k, 3000, 2); },
+    hit: (cause) => {   // what got you, on top of the splat
+      if (cause === 'pit') tone(900, 160, 0.5, 'sine', V);
+      else if (cause === 'crush') { noise(0.14, V, 1000, 0.9); tone(360, 110, 0.14, 'square', V2); }
+      else if (cause === 'blade') { noise(0.05, V, 5000, 3); noise(0.05, V, 4300, 3, 0.06); }
+      else if (cause === 'chase') noise(0.35, V, 700, 0.6);
+      else if (cause === 'wall') { tone(380, 150, 0.09, 'square', V2); noise(0.05, V, 1200, 1); }
+      else { noise(0.1, V, 2600, 1.6); tone(1300, 700, 0.06, 'triangle', V); }   // spikes
+    },
+    pad: (k) => tone(1600, 1900, 0.05, 'sine', V * k),
+    star: (n) => { const f = [880, 1109, 1319][Math.max(0, Math.min(2, (n || 1) - 1))]; tone(f, f, 0.09, 'triangle', V); tone(f * 1.5, f * 1.5, 0.2, 'triangle', V, 0.07); },
+    staple: (k) => { noise(0.11, V * k, 2600, 1.2); tone(520, 170, 0.11, 'square', V2 * k); },
+    drip: (k) => tone(900, 240, 0.12, 'sine', V * k),
+    snip: (k) => { noise(0.04, V * k, 5000, 3); noise(0.04, V * k, 4200, 3, 0.07); },
+    swish: (k) => noise(0.22, V * k, 1100, 0.8, 0, 2200),
+    rub: (k) => noise(0.2, V * k, 700, 0.6)
+  };
+  const TRIM = /*TRIM*/{"boost":1.7,"near":2.11,"jump":4.24,"glue":1.14,"spring":1.05,"corner":1.04,"bounce":3.93,"teleport":1.33,"die":2.17,"win":0.93,"flip":2.43,"ring":1.43,"button":3.76,"plank":6.04,"ride":4.94,"gate":4.86,"zoneIn":0.84,"zoneOut":2.29,"bubble":2.14,"land":13.03,"glueLand":3.58,"step":17.31,"tick":3.02,"tock":3.24,"gong":2.55,"gurgle":1.09,"rulerTurn":4.49,"hit:spike":5.08,"hit:pit":0.63,"hit:crush":3.9,"hit:blade":5.47,"hit:chase":3.6,"hit:wall":7.59,"pad":1.25,"star":0.7,"staple":4.08,"drip":2.13,"snip":7.31,"swish":3.77,"rub":4.57}/*END*/;
+  const DRY = { zoneIn: 1, zoneOut: 1, bubble: 1 };   // the water's own sounds are not muffled by it
+  // obstacle sounds are pushed up so they stand out clearly over the music (the limiter keeps them clean)
+  const LOUD = { boost: 1, glue: 1, spring: 1, corner: 1, bounce: 1, teleport: 1, flip: 1, ring: 1, button: 1, plank: 1, ride: 1, gate: 1,
+    glueLand: 1, tick: 1, tock: 1, gong: 1, gurgle: 1, rulerTurn: 1, hit: 1, pad: 1, staple: 1, drip: 1, snip: 1, swish: 1, rub: 1,
+    zoneIn: 1, zoneOut: 1, bubble: 1 };
+  const LOUD_K = 1.9, CUE_K = 2.4;
+  Object.keys(sfx).forEach((k) => {
+    const f = sfx[k], boost = k.indexOf('cue') === 0 ? CUE_K : LOUD[k] ? LOUD_K : 1;
+    sfx[k] = (a) => { gk = (TRIM[k === 'hit' ? 'hit:' + (TRIM['hit:' + a] ? a : 'spike') : k] || 1) * boost; dry = !!DRY[k]; try { f(a); } finally { gk = 1; dry = false; } };
+  });
+
+  /* ---------- state ---------- */
+  let screen = 'menu';
+  let idx = 0, L = LEVELS[0], s = E.newState(L);
+  let pressed = false, queued = false, acc = 0, last = 0, clock = 0, boil = 0;
+  let deaths = 0, deadT = 0, wonT = -1, runPhase = 0;
+  let W = 0, H = 0, DPR = 1, S = 1;
+  const cam = { x: 0, y: 0, focusY: 0, boost: 0, shake: 0 };
+  const stains = LEVELS.map(() => []);
+  let parts = [], zips = [], trail = [], pops = {}, doneAt = 0;
+  let sq = 0, slowT = 0, comboN = 0, comboAt = -9, floats = [], near = {}, nearAt = -9, zoom = 1, S0 = 1, endless = null;
+  // a tap or key meant as a jump must not press a button that appeared under it
+  const tooSoon = () => clock - doneAt < 0.4;
+
+  /* ---------- deterministic "hand" randomness ---------- */
+  function rnd(a, b, c) {
+    let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 0x85ebca6b);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  const jit = (seed, k, amp) => (rnd(seed, k, boil) - 0.5) * 2 * amp;
+  function seg(x1, y1, x2, y2, seed, amp) {
+    if (amp == null) amp = 1.1;
+    ctx.moveTo(x1 + jit(seed, 1, amp), y1 + jit(seed, 2, amp));
+    ctx.quadraticCurveTo((x1 + x2) / 2 + jit(seed, 3, amp * 1.4), (y1 + y2) / 2 + jit(seed, 4, amp * 1.4), x2 + jit(seed, 5, amp), y2 + jit(seed, 6, amp));
+  }
+  function poly(pts, seed, amp, close) {
+    if (amp == null) amp = 1.1;
+    for (let i = 0; i < pts.length; i++) {
+      const x = pts[i][0] + jit(seed, i * 2 + 1, amp), y = pts[i][1] + jit(seed, i * 2 + 2, amp);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    if (close) ctx.closePath();
+  }
+
+  /* ---------- per-level drawing data ---------- */
+  function prep(Lv) {
+    if (Lv.edges) return;
+    const top = [], side = [], tiles = [];
+    for (let r = 0; r < Lv.h; r++) {
+      for (let c = 0; c < Lv.w; c++) {
+        if (!E.solidAt(Lv, c, r)) continue;
+        let exposed = false;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (!E.solidAt(Lv, c + dc, r + dr) && r + dr < Lv.h) exposed = true;
+        tiles.push([c, r, exposed]);
+        if (!E.solidAt(Lv, c, r - 1)) top.push([c, r, c + 1, r]);
+        if (!E.solidAt(Lv, c, r + 1)) side.push([c, r + 1, c + 1, r + 1]);
+        if (!E.solidAt(Lv, c - 1, r)) side.push([c, r, c, r + 1]);
+        if (!E.solidAt(Lv, c + 1, r)) side.push([c + 1, r, c + 1, r + 1]);
+      }
+    }
+    Lv.edges = { top: top, side: side }; Lv.tiles = tiles;
+    Lv.pair = {};
+    Lv.teleIn.slice().sort((a, b) => a.c - b.c || a.r - b.r).forEach((o) => { if (!(o.k in Lv.pair)) Lv.pair[o.k] = Object.keys(Lv.pair).length; });
+    // faint margin doodles in empty areas
+    const dood = []; let n = 0;
+    for (let gc = 0; gc < Lv.w + 12; gc += 7) for (let gr = -6; gr < Lv.h + 2; gr += 4) {
+      n++;
+      const c = gc + Math.floor(rnd(n, 7, Lv.w) * 4), r = gr + Math.floor(rnd(n, 11, Lv.h) * 2);
+      if (Lv.labels.some((l) => Math.abs(l.c - c) < 8 && Math.abs(l.r - r) < 2)) continue;
+      dood.push({ c: c, r: r, k: Math.floor(rnd(n, 3, 5) * 6), f: Math.floor(rnd(n, 13, 3) * 99), rot: (rnd(n, 5, 9) - 0.5) * 0.4, sc: 1.7 + rnd(n, 17, 2) * 0.7 });
+    }
+    Lv.doodles = dood;
+  }
+
+  /* ---------- layout ---------- */
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    W = Math.max(200, r.width); H = Math.max(200, r.height);
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    S0 = Math.max(0.45, Math.min(1.5, Math.min(W / (15 * T), H / (11 * T)))); S = S0 * zoom;
+  }
+
+  function camTarget() {
+    const vw = W / S, vh = H / S;
+    const px = s.x + CFG.pw / 2, feet = s.y + CFG.ph;
+    if (s.grounded) cam.focusY = feet;
+    else {
+      if (feet < cam.focusY - 3.2 * T) cam.focusY = feet + 3.2 * T;
+      if (feet > cam.focusY) cam.focusY = feet;
+    }
+    const tx = px + s.dir * vw * 0.2 - vw / 2;
+    let ty = cam.focusY - vh * 0.64;
+    if (vh < L.h * T + T) ty = Math.min(ty, L.h * T - vh + T * 0.5);
+    return [tx, ty];
+  }
+  function camSnap() {
+    cam.focusY = s.y + CFG.ph;
+    const t = camTarget(); cam.x = t[0]; cam.y = t[1]; cam.boost = 0; cam.shake = 0;
+  }
+
+  /* ---------- game flow ---------- */
+  function respawn() {
+    s = E.newState(L); acc = 0; trail = []; zips = []; goo = []; runPhase = 0; wonT = -1; queued = false;
+    sq = 0; slowT = 0; comboN = 0; near = {}; cued = {}; floats = []; inZone = false; underwater(false);
+    hudStars();
+    cam.boost = 0.35;
+  }
+  /* ---------- endless: one validated page after another until the first blot ---------- */
+  const meters = () => endless.dist + Math.max(0, Math.floor((s.x - L.start.c * T) / T));
+  function startEndless() { endless = { dist: 0, n: 0, last: '' }; deaths = 0; pressed = false; nextPage(); }
+  function nextPage() {
+    const P = window.Levels.PAGES, mw = open(2) ? 3 : open(1) ? 2 : 1, tier = endless.n < 2 ? 1 : endless.n < 5 ? 2 : 3;
+    let pool = P.filter((q) => q[0] <= mw && q[1] === tier && q[2] !== endless.last);
+    if (!pool.length) pool = P;
+    const pg = pool[Math.floor(Math.random() * pool.length)];
+    const def = window.Levels.assemble('endless', pg[2]); def.world = pg[0];
+    L = E.parseLevel(def); L.world = pg[0]; prep(L);
+    idx = LEVELS.length; stains[idx] = [];
+    endless.last = pg[2]; endless.n++;
+    parts = []; pops = {};
+    respawn(); camSnap();
+    screen = 'play';
+    menuEl.hidden = true; doneEl.hidden = true; hudEl.hidden = false;
+    $('hud-name').textContent = 'Endless · page ' + endless.n;
+    hudDeaths();
+  }
+  function endRun() {
+    const m = meters(), best = store.endless || 0;
+    if (m > best) store.endless = m;
+    save();
+    $('done-title').textContent = m > best ? 'New best!' : 'Run over';
+    $('done-name').textContent = 'Endless · page ' + endless.n;
+    $('done-new').textContent = ''; $('done-stars').textContent = '';
+    $('done-stats').textContent = m + ' m · best ' + Math.max(m, best) + ' m';
+    $('btn-next').textContent = 'Run again'; $('btn-again').hidden = true;
+    screen = 'won'; doneAt = clock;
+    doneEl.hidden = false; hudEl.hidden = true;
+    $('btn-next').focus({ preventScroll: true });
+  }
+  function startLevel(i) {
+    endless = null;
+    idx = Math.max(0, Math.min(LEVELS.length - 1, i));
+    L = LEVELS[idx]; prep(L);
+    store.tries = store.tries || {};
+    deaths = store.tries[L.id] || 0; parts = []; pops = {}; pressed = false;   // blots stay with a level until it is passed
+    respawn(); camSnap();
+    screen = 'play';
+    menuEl.hidden = true; doneEl.hidden = true; hudEl.hidden = false;
+    $('hud-name').textContent = (L.boss ? '' : 'Level ') + tag(idx);
+    hudDeaths();
+  }
+  function hudStars() { const el = $('hud-stars'); el.hidden = !L.stars.length || !!endless; if (!el.hidden) el.textContent = starStr(bits(s.got)); }
+  function hudDeaths() { hudStars(); if (endless) { $('hud-deaths').textContent = meters() + ' m'; return; } $('hud-deaths').textContent = deaths === 0 ? 'clean page' : 'daubs: ' + deaths; }
+  function blotsText(n) { return n === 0 ? 'clean page' : n === 1 ? '1 daub' : n + ' daubs'; }
+
+  function showMenu(w) {
+    inZone = false; underwater(false);
+    screen = 'menu'; pressed = false;
+    menuWorld = typeof w === 'number' ? w : (L && !endless ? wOf(idx) : -1);
+    endless = null;
+    buildMenu();
+    menuEl.hidden = false; doneEl.hidden = true; hudEl.hidden = true;
+  }
+  // a pen-drawn skull for the boss button (hand-drawn paths, not an emoji)
+  const SKULL = '<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" style="transform:rotate(15deg)"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path stroke-width="2.1" d="M10 25 C 5.5 19.5, 6.5 9, 14.2 5.8 C 21.5 2.8, 31.2 5.4, 33.4 12.8 C 35.2 18.6, 32.8 22.8, 30.1 24.8 L 29.4 30.6 C 25.8 33.6, 15.2 33.6, 11.6 30.9 L 10.4 25.4"/>' +
+    '<path stroke-width="1.1" opacity="0.7" d="M11 24.2 C 7 18.8, 7.8 9.8, 15 6.6 C 22 3.9, 30.6 6.3, 32.6 13.4 C 34 18.4, 32 22.4, 29.2 24.2"/>' +
+    '<path stroke-width="1.6" d="M13.6 14.6 C 15.6 13.2, 18.4 14.6, 17.6 17 C 16.8 19.1, 13.6 18.6, 13.4 16.4 C 13.3 15.2, 15.1 14.6, 16.1 15.6 M 14.6 16.6 L 16.6 17.6"/>' +
+    '<path stroke-width="1.6" d="M23.6 14.2 C 25.7 12.9, 28.6 14.3, 27.8 16.7 C 27 18.8, 23.8 18.3, 23.6 16.1 C 23.5 14.9, 25.3 14.3, 26.3 15.3 M 24.8 16.3 L 26.8 17.2"/>' +
+    '<path stroke-width="1.7" d="M20.4 20 L 18.8 23.4 L 22.3 23.1 Z"/>' +
+    '<path stroke-width="1.5" d="M13 26.6 C 17.5 27.6, 23.5 27.6, 28 26.4 M 16.2 26.9 L 16.6 31.8 M 20.3 27.3 L 20.4 32.4 M 24.5 27 L 24.2 31.8"/>' +
+    '<path stroke-width="1.2" d="M22 6 L 20.6 9.2 L 22.4 10.6 L 21.2 12.6"/></g></svg>';
+  function buildMenu() {
+    const ol = $('levels'); ol.textContent = '';
+    const wl = $('worlds'); wl.textContent = '';
+    $('menu-back').hidden = menuWorld === -1;
+    $('btn-skins').hidden = menuWorld !== -1;
+    $('btn-endless').hidden = menuWorld !== -1;
+    $('btn-endless').textContent = 'Endless' + (store.endless ? ' · ' + store.endless + ' m' : '');
+    $('menu-sub').textContent = menuWorld === -1 ? 'The doodle runs on its own. Tap to jump, hold to jump higher.' : menuWorld === -2 ? 'Dress up your doodle' : 'World ' + (menuWorld + 1) + ' · ' + WNAME[menuWorld];
+    wl.hidden = menuWorld !== -1; ol.hidden = menuWorld < 0; $('skins').hidden = menuWorld !== -2;
+    if (menuWorld === -2) buildSkins();
+    else if (menuWorld === -1) {
+      WORLDS.forEach((list, w) => {
+        const li = document.createElement('li');
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'world w' + (w + 1);
+        const ok = open(w), n = passed(w);
+        b.innerHTML = '<span class="wn">' + (w + 1) + '</span><span class="wt"></span><span class="wp"></span>';
+        b.querySelector('.wt').textContent = WNAME[w];
+        b.querySelector('.wp').textContent = ok ? '★ ' + wStars(w) + ' / ' + list.length * 3 : 'pass ' + UNLOCK + ' in W' + w;
+        b.disabled = !ok; if (!ok) b.classList.add('locked');
+        b.setAttribute('aria-label', 'World ' + (w + 1) + ', ' + WNAME[w] + (ok ? ', ' + n + ' of ' + list.length + ' passed' : ', locked'));
+        b.addEventListener('click', () => { audio(); menuWorld = w; buildMenu(); });
+        li.append(b); wl.append(li);
+      });
+    } else {
+      WORLDS[menuWorld].forEach((i, n) => {
+        const lv = LEVELS[i];
+        const li = document.createElement('li');
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'level'; if (lv.boss) b.innerHTML = SKULL; else b.textContent = String(n + 1);
+        if (lv.boss) { b.classList.add('boss'); if (!OPEN_ALL && passed(menuWorld) < 19) { b.disabled = true; b.title = 'pass all 19 levels'; } }
+        const mark = document.createElement('span'); mark.className = 'mark';
+        const d = store.done[lv.id];
+        b.setAttribute('aria-label', (lv.boss ? 'Boss' + (b.disabled ? ', locked until all 19 levels are passed' : '') : 'Level ' + (n + 1)) + (d ? ', passed with ' + blotsText(d.deaths) : ''));
+        if (lv.boss && !d) { mark.textContent = b.disabled ? 'pass all 19' : 'boss'; mark.classList.add('lbl'); }
+        if (d) {
+          mark.textContent = starStr(starsOf(d, lv));
+        }
+        b.addEventListener('click', () => { audio(); startLevel(i); });
+        li.append(b, mark); ol.append(li);
+      });
+    }
+    $('sound').checked = !store.muted; $('music').checked = store.music !== false; $('dark').checked = DARK;
+  }
+  function buildSkins() {
+    const t = stats();
+    applySkin();
+    doodleIcon($('skin-big'), store.skin.hat, PEN, 0.9, 2.4);
+    [['hats', HATS, 'hat'], ['pens', PENS, 'pen']].forEach(([el, list, key]) => {
+      const ol = $(el); ol.textContent = '';
+      list.forEach((it) => {
+        const li = document.createElement('li');
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'skin';
+        const ok = have(it, t), on = store.skin[key] === it.id;
+        if (on) b.classList.add('on'); if (!ok) { b.classList.add('locked'); b.disabled = true; }
+        const cv = document.createElement('canvas'); cv.className = 'skin-cv';
+        const nm = document.createElement('span'); nm.className = 'skin-nm'; nm.textContent = ok ? it.name : it.hint;
+        b.append(cv, nm);
+        b.setAttribute('aria-label', it.name + (ok ? (on ? ', selected' : '') : ', locked: ' + it.hint));
+        b.addEventListener('click', () => { audio(); store.skin[key] = it.id; save(); buildSkins(); });
+        li.append(b); ol.append(li);
+        requestAnimationFrame(() => doodleIcon(cv, key === 'hat' ? it.id : store.skin.hat, key === 'pen' ? it.col : PEN));
+      });
+    });
+  }
+  function finishLevel() {
+    if (endless) { endless.dist += Math.floor((s.x - L.start.c * T) / T); nextPage(); return; }
+    $('btn-again').hidden = false;
+    const before = unlockedNames(stats());
+    const id = L.id, time = s.t / 120, prev = store.done[id];
+    if (store.tries) delete store.tries[id];
+    const got = bits(s.got), best = Math.max(got, (prev && prev.stars) || 0);
+    if (!prev || deaths < prev.deaths || (deaths === prev.deaths && time < prev.time)) store.done[id] = { deaths: deaths, time: Math.round(time * 10) / 10 };
+    if (L.stars.length) store.done[id].stars = best;
+    save();
+    const W = WORLDS[wOf(idx)], lastLevel = idx === W[W.length - 1];
+    $('done-title').textContent = L.boss ? 'Boss beaten!' : 'Passed!';
+    $('done-name').textContent = (L.boss ? '' : 'Level ') + tag(idx);
+    const fresh = unlockedNames(stats()).filter((n) => before.indexOf(n) < 0);
+    $('done-new').textContent = fresh.length ? 'New for your doodle: ' + fresh.join(', ') : '';
+    $('done-stars').textContent = starStr(starsOf({ deaths: deaths, stars: got }, L));
+    $('done-stats').textContent = (L.stars.length && got < 3 && best > got ? 'best ' + starStr(best) + ' · ' : '') + blotsText(deaths) + ' · ' + time.toFixed(1) + ' seconds';
+    $('btn-next').textContent = lastLevel ? 'Back to levels' : 'Next level';
+    screen = 'won'; doneAt = clock;
+    doneEl.hidden = false; hudEl.hidden = true;
+    $('btn-next').focus({ preventScroll: true });
+  }
+
+  function splat(x, y) {
+    const blobs = [];
+    for (let i = 0; i < 7; i++) {
+      const a = rnd(deaths, i, idx) * Math.PI * 2, d = rnd(deaths, i + 20, idx) * 15;
+      blobs.push([Math.cos(a) * d, Math.sin(a) * d * 0.7, 3 + rnd(deaths, i + 40, idx) * 8]);
+    }
+    const list = stains[idx];
+    list.push({ x: x, y: y, blobs: blobs });
+    if (list.length > 60) list.shift();
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 260;
+      parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, r: 1.5 + Math.random() * 3, life: 0.5 + Math.random() * 0.4 });
+    }
+  }
+
+  function tick() {
+    if (s.dead) {
+      queued = false;
+      deadT -= CFG.dt;
+      if (deadT <= 0) { if (endless) endRun(); else respawn(); }
+      return;
+    }
+    if (s.won) return;
+    const ev = [];
+    const x0 = s.x;
+    E.step(L, s, pressed || queued, ev);
+    queued = false;
+    if (s.grounded) runPhase += Math.abs(s.x - x0) / 9;
+    if (!s.dead && s.t % 30 === 0) musicStep(s.t / 30);
+    if (!s.dead) objectSounds(s.t - 1, s.t, x0);
+    if (endless && s.t % 12 === 0) hudDeaths();
+    if (s.t % 3 === 0) { trail.push([s.x + CFG.pw / 2, s.y + CFG.ph - 12]); if (trail.length > 26) trail.shift(); }
+    for (let i = 0; i < ev.length; i++) {
+      const e = ev[i];
+      if (e.type === 'land') {
+        if (!reduce) sq = -0.35;
+        const fc = Math.floor((s.x + CFG.pw / 2) / T), fr = s.g > 0 ? Math.floor((s.y + CFG.ph + 2) / T) : Math.floor((s.y - 2) / T);
+        if (E.cell(L, fc, s.g > 0 ? fr - 1 : fr + 1) === 'u' || E.cell(L, fc, fr) === 'u') sfx.glueLand(); else sfx.land();
+      }
+      else if (e.type === 'boost') { sfx.boost(); trick(); }
+      else if (e.type === 'jump') { if (e.glued) sfx.glue(); else sfx.jump(); if (!reduce) sq = 0.28; if (e.glued && !reduce) { const up = s.g < 0, fy = up ? s.y : s.y + CFG.ph; goo.push({ x: s.x + CFG.pw / 2, y: fy, up: up, t: 0, n: 3 + (Math.random() * 2 | 0), sd: Math.random() * 99 }); } }
+      else if (e.type === 'spring') { if (e.low) sfx.corner(); else sfx.spring(); pops[e.c + ',' + e.r] = clock; if (!reduce) sq = 0.55; trick(); }
+      else if (e.type === 'bounce') { sfx.bounce(); pops[e.c + ',' + e.r] = clock; trick(); }
+      else if (e.type === 'flip') { sfx.flip(e.to); if (e.auto) { sfx.gong(); cam.shake = reduce ? 0 : 0.3; } else trick(); }
+      else if (e.type === 'ring') { sfx.ring(); pops[e.c + ',' + e.r] = clock; trick(); }
+      else if (e.type === 'button') sfx.button();
+      else if (e.type === 'star') {
+        const n = bits(e.got); sfx.star(n); hudStars();
+        const sx = e.c * T + T / 2, sy = e.r * T + T / 2;
+        for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5; parts.push({ x: sx, y: sy, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150 - 40, r: 2.2, life: 0.5, col: GOLD }); }
+        floats.push({ x: sx, y: sy - 12, text: n + ' / 3', t: 0, col: GOLD });
+      }
+      else if (e.type === 'plank') sfx.plank();
+      else if (e.type === 'ride') sfx.ride();
+      else if (e.type === 'teleport') {
+        sfx.teleport(); zips.push({ fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t: 0, col: pairColor(e.k) });
+        trail = []; cam.boost = 0.4; trick();
+      } else if (e.type === 'die') {
+        deaths++; store.blots++; if (!endless) { store.tries = store.tries || {}; store.tries[L.id] = deaths; save(); } comboN = 0; slowT = 0; hudDeaths(); sfx.die(); sfx.hit(e.cause); underwater(false); inZone = false;
+        splat(s.x + CFG.pw / 2, Math.min(s.y + CFG.ph / 2, L.h * T - 6));
+        deadT = 0.5; cam.shake = reduce ? 0 : 0.22;
+      } else if (e.type === 'win') { inZone = false; underwater(false); sfx.win(); wonT = endless ? 0.15 : 0.7; }
+    }
+    // a spike that passes within a hair of the doodle: a blink of slow motion
+    if (!s.dead && clock - nearAt > 0.45) {
+      for (let i = 0; i < L.spikes.length; i++) {
+        const o = L.spikes[i], X = o.c * T + 10, Y = o.r * T + (o.up ? 18 : 0);
+        if (Math.abs(X - s.x) > 60 || near[i]) continue;
+        if (s.x - 9 < X + 20 && s.x + CFG.pw + 9 > X && s.y - 9 < Y + 22 && s.y + CFG.ph + 9 > Y) {
+          near[i] = 1; nearAt = clock; if (!reduce) slowT = 0.13; sfx.near();
+          floats.push({ x: s.x + CFG.pw / 2, y: s.y - 26, text: 'close!', t: 0, col: C.green });
+          trick(); break;
+        }
+      }
+    }
+  }
+  // moving things make their sound when they hit their beat, louder the closer they are
+  let inZone = false, cued = {};
+  // every fixed obstacle on the page, with the voice it uses when it comes up ahead (runs of the same tile share one cue)
+  function cueList(Lv) {
+    if (Lv.cues) return Lv.cues;
+    const out = [], add = (c, r, kind, arg) => out.push({ x: c * T + T / 2, y: r * T + T / 2, kind: kind, arg: arg, id: out.length });
+    const runs = (arr, kind, same, argOf) => {
+      const seen = {};
+      arr.slice().sort((a, b) => a.r - b.r || a.c - b.c).forEach((o) => {
+        const prev = seen[(o.r) + ',' + (o.c - 1)];
+        seen[o.r + ',' + o.c] = prev && same(prev, o) ? prev : o;
+        if (!(prev && same(prev, o))) add(o.c, o.r, kind, argOf ? argOf(o) : undefined);
+      });
+    };
+    runs(Lv.spikes, 'cueSpike', (a, b) => a.up === b.up, (o) => o.up);
+    Lv.springs.forEach((o) => add(o.c, o.r, o.low ? 'cueCorner' : 'cueSpring'));
+    Lv.bouncers.forEach((o) => add(o.c, o.r, 'cueBouncer'));
+    Lv.teleIn.forEach((o) => add(o.c, o.r, 'cueTele'));
+    Lv.rings.forEach((o) => add(o.c, o.r, 'cueRing'));
+    Lv.flips.forEach((o) => add(o.c, o.r, 'cueFlip', o.to));
+    runs(Lv.glue, 'cueGlue', () => true);
+    Lv.buttons.forEach((o) => add(o.c, o.r, 'cueButton'));
+    Lv.stars.forEach((o) => add(o.c, o.r, 'cueStar'));
+    Lv.gates.forEach((o) => add(o.c, o.r, 'cueGate'));
+    runs(Lv.doors, 'cueDoor', () => true);
+    Lv.plats.forEach((p) => { if (p.van) add(p.x / T, p.y / T, 'cuePencil'); });
+    if (Lv.finish) add(Lv.finish.c, Lv.finish.r, 'cueFinish');
+    Lv.cues = out;
+    return out;
+  }
+  function objectSounds(t0, t1, x0) {
+    // louder the closer it is, but never so faint you can't pick it out
+    const near = (x) => { const k = 1 - Math.abs(x - s.x) / (9 * T); return k <= 0 ? 0 : 0.4 + 0.6 * k; };
+    // fixed obstacles: a cue as each one comes up a few squares ahead (at most two at once, so they stay clear)
+    {
+      const cx = s.x + CFG.pw / 2, cy = s.y + CFG.ph / 2;
+      let played = 0;
+      for (const q of cueList(L)) {
+        if (cued[q.id]) continue;
+        const ahead = (q.x - cx) * s.dir;
+        if (ahead < -T || ahead > 4.5 * T || Math.abs(q.y - cy) > 6 * T) continue;
+        cued[q.id] = 1;
+        if (played < 2) { sfx[q.kind](q.arg); played++; }
+      }
+    }
+    const cross = (t, ph, per, th) => { const u0 = ((t0 + ph) % per) / per, u1 = ((t + ph) % per) / per; return u1 >= u0 ? u0 < th && th <= u1 : th > u0 || th <= u1; };
+    for (const m of L.staplers) {
+      const k = near(m.x + m.w / 2); if (k <= 0) continue;
+      if (cross(t1, m.phase, m.period, 0.58)) (m.drip ? sfx.drip : sfx.staple)(k);
+    }
+    const seen = {};
+    for (const a of L.arms) {
+      if (seen[a.group]) continue; seen[a.group] = 1;
+      const k = near(a.px); if (k <= 0) continue;
+      if (a.kind === 'swing') { if (cross(t1, a.phase, a.period, 0.999)) sfx.snip(k); }
+      else if (cross(t1, a.phase, a.period, 0.25) || cross(t1, a.phase, a.period, 0.75)) sfx.swish(k);
+    }
+    for (const gt of L.gates) {
+      const gx = gt.c * T + T / 2, mx0 = x0 + CFG.pw / 2, mx1 = s.x + CFG.pw / 2;
+      if ((mx0 - gx) * (mx1 - gx) < 0 && Math.abs(s.y + CFG.ph / 2 - (gt.r * T + T / 2)) < T) sfx.gate();
+    }
+    if (L.zones.length) {
+      const mx = s.x + CFG.pw / 2, my = s.y + CFG.ph / 2;
+      const z = L.zones.some((q) => mx >= q.x0 && mx < q.x1 && my >= q.y0 && my < q.y1);
+      if (z !== inZone) { inZone = z; (z ? sfx.zoneIn : sfx.zoneOut)(); }
+    }
+    if (L.boss === 'eraser' && t1 % 28 === 0) { const k = near(E.chaseX(L, t1) + 40); if (k > 0) sfx.rub(0.4 + 0.6 * k); }
+    if (L.boss === 'ink' && t1 % 36 === 0) { const k = near(E.chaseX(L, t1)); if (k > 0) sfx.gurgle(0.4 + 0.6 * k); }
+    if (L.boss === 'pendulum' && L.flipEvery) { const h = L.flipEvery / 2; if (t1 % h === 0 && t1 % L.flipEvery !== 0) { ((t1 / h) % 4 === 1 ? sfx.tick : sfx.tock)(); if (!reduce) cam.shake = Math.max(cam.shake, 0.14); } }
+    if (inZone && t1 % 20 === 0 && Math.random() < 0.75) sfx.bubble();
+    if (s.grounded && t1 % 22 === 0) sfx.step();
+    for (const p of L.plats) {   // rulers clack when they turn around
+      if (!p.mv) continue; const k = near(p.x + p.w / 2); if (k <= 0) continue;
+      if (cross(t1, p.mv.phase, p.mv.period, 0.5) || cross(t1, p.mv.phase, p.mv.period, 0.999)) sfx.rulerTurn(k);
+    }
+    if (t1 % 40 === 0) for (const q of L.pads) { const k = near(q.c * T); if (k > 0.3) { sfx.pad(k); break; } }
+  }
+  // tricks chained quickly build a streak
+  function trick() {
+    comboN = clock - comboAt < 1.8 ? comboN + 1 : 1; comboAt = clock;
+    if (comboN >= 2) {
+      floats.push({ x: s.x + CFG.pw / 2, y: s.y - 8, text: 'x' + comboN, t: 0, col: C.red, big: Math.min(comboN, 8) });
+      tone(480 + comboN * 70, 560 + comboN * 70, 0.09, 'triangle', V * 1.6);
+    }
+  }
+
+  /* ---------- drawing ---------- */
+  function drawPaper(vw, vh) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
+    let sx = 0, sy = 0;
+    if (cam.shake > 0) { sx = (Math.random() - 0.5) * 9 * cam.shake / 0.22; sy = (Math.random() - 0.5) * 9 * cam.shake / 0.22; }
+    ctx.setTransform(DPR * S, 0, 0, DPR * S, (-cam.x * S + sx) * DPR, (-cam.y * S + sy) * DPR);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const wd = L.world || 1, gx0 = Math.floor((cam.x - 20) / T) * T, gy0 = Math.floor(cam.y / T) * T;
+    if (wd === 1) {          // math: squared paper
+      ctx.strokeStyle = C.rule; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.55; ctx.beginPath();
+      for (let y = gy0; y < cam.y + vh + T; y += T / 2) { ctx.moveTo(cam.x - 20, y); ctx.lineTo(cam.x + vw + 20, y); }
+      for (let x = gx0; x < cam.x + vw + T; x += T / 2) { ctx.moveTo(x, cam.y - 20); ctx.lineTo(x, cam.y + vh + 20); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    } else if (wd === 3) {   // art: dotted sketchbook
+      ctx.fillStyle = C.rule;
+      for (let y = gy0; y < cam.y + vh + T; y += T / 2) for (let x = gx0; x < cam.x + vw + T; x += T / 2) ctx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4);
+    } else {                 // physics: ruled lines
+      ctx.strokeStyle = C.rule; ctx.lineWidth = 1.3; ctx.beginPath();
+      for (let y = gy0; y < cam.y + vh + T; y += T) { ctx.moveTo(cam.x - 20, y); ctx.lineTo(cam.x + vw + 20, y); }
+      ctx.stroke();
+    }
+    // margin
+    ctx.strokeStyle = C.margin; ctx.lineWidth = 1.4; ctx.beginPath();
+    ctx.moveTo(-14, cam.y - 20); ctx.lineTo(-14, cam.y + vh + 20);
+    ctx.moveTo(-8, cam.y - 20); ctx.lineTo(-8, cam.y + vh + 20);
+    ctx.stroke();
+  }
+
+  const FORM = [
+    ['x² + y² = r²', 'a² + b² = c²', 'y = mx + b', 'π ≈ 3.14159', 'sin²θ + cos²θ = 1', '∫ x dx = x²/2 + C', 'e^(iπ) + 1 = 0', '√2 ≈ 1.414', 'Σ k = n(n+1)/2', 'x = (−b ± √Δ) / 2a', 'f′(x) = 2x', 'log(ab) = log a + log b'],
+    ['F = ma', 'E = mc²', 'v = Δx / Δt', 'g ≈ 9.8 m/s²', 'p = mv', 'λ = v / f', 'W = F·d', 'KE = ½mv²', 'V = IR', 'a = Δv / Δt', 'F = G·m₁m₂/r²', 'PE = mgh'],
+    ['sketch #12', 'light → shadow', 'warm vs cool', '1-point perspective', 'shade lightly!', 'draw every day', 'rule of thirds', 'study: hands', 'cross-hatch', 'complementary']
+  ];
+  function drawDoodle(d) {
+    const x = d.c * T + T / 2, y = d.r * T + T / 2, sd = d.c * 97 + d.r * 13, wd = L.world || 1;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot); ctx.scale(d.sc, d.sc); ctx.lineWidth = 1.4 / d.sc * 1.6;
+    if (d.k % 2 === 0 && wd !== 3) {   // half of the doodles are the subject's notes (art is drawings only)
+      ctx.fillStyle = C.pencil; ctx.font = '22px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const f = FORM[wd - 1];
+      ctx.fillText(f[d.f % f.length], 0, 0); ctx.restore(); return;
+    }
+    ctx.beginPath();
+    if (wd === 1 && d.k === 1) {          // parabola on axes
+      seg(-24, 14, 24, 14, sd, 0.5); seg(-10, -20, -10, 18, sd + 1, 0.5);
+      for (let i = 0; i <= 16; i++) { const px = -22 + i * 2.8, yy = -16 + Math.pow((px - 2) / 12, 2) * 26; if (i === 0) ctx.moveTo(px, yy); else ctx.lineTo(px, yy); }
+    } else if (wd === 1 && d.k === 3) {   // right triangle
+      poly([[-18, 14], [18, 14], [-18, -14]], sd, 0.6, true); ctx.rect(-18, 8, 6, 6);
+    } else if (wd === 2 && d.k === 1) {   // pendulum
+      seg(-16, -18, 16, -18, sd, 0.4); seg(0, -18, 10, 10, sd + 1, 0.4); ctx.moveTo(15, 12); ctx.arc(10, 12, 5, 0, Math.PI * 2);
+      ctx.moveTo(-12, 8); ctx.quadraticCurveTo(0, 18, 14, 4);
+    } else if (wd === 2 && d.k === 3) {   // box with force arrows
+      ctx.rect(-8, -8, 16, 16); seg(8, 0, 26, 0, sd, 0.4); seg(26, 0, 21, -4, sd + 1, 0.3); seg(26, 0, 21, 4, sd + 2, 0.3);
+      seg(0, 8, 0, 24, sd + 3, 0.4); seg(0, 24, -4, 19, sd + 4, 0.3); seg(0, 24, 4, 19, sd + 5, 0.3);
+    } else if (wd === 2 && d.k === 5) {   // atom
+      ctx.ellipse(0, 0, 18, 6, 0, 0, Math.PI * 2); ctx.moveTo(18 * Math.cos(1.05) + 0, 0);
+      ctx.ellipse(0, 0, 18, 6, 1.05, 0, Math.PI * 2); ctx.moveTo(9, 0); ctx.ellipse(0, 0, 18, 6, -1.05, 0, Math.PI * 2); ctx.moveTo(2.5, 0); ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+    } else if (wd === 3 && d.k === 0) {   // paintbrush
+      ctx.moveTo(-24, 14); ctx.lineTo(6, -8); ctx.moveTo(-22, 17); ctx.lineTo(8, -5);
+      ctx.moveTo(6, -8); ctx.lineTo(12, -13); ctx.lineTo(15, -10); ctx.lineTo(8, -5);
+      ctx.moveTo(12, -13); ctx.quadraticCurveTo(20, -22, 26, -24); ctx.quadraticCurveTo(22, -16, 15, -10);
+    } else if (wd === 3 && d.k === 2) {   // spiral
+      for (let i = 0; i <= 60; i++) { const a = i * 0.32, rr = 1.5 + i * 0.33; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+    } else if (wd === 3 && d.k === 4) {   // sun over mountains
+      seg(-26, 16, -10, -6, sd, 0.6); seg(-10, -6, 2, 8, sd + 1, 0.6); seg(2, 8, 12, -2, sd + 2, 0.6); seg(12, -2, 26, 16, sd + 3, 0.6);
+      ctx.moveTo(22, -14); ctx.arc(16, -14, 6, 0, Math.PI * 2);
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.moveTo(16 + Math.cos(a) * 9, -14 + Math.sin(a) * 9); ctx.lineTo(16 + Math.cos(a) * 13, -14 + Math.sin(a) * 13); }
+    } else if (wd === 3 && d.k === 1) {   // flower
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; ctx.moveTo(Math.cos(a) * 4, Math.sin(a) * 4); ctx.ellipse(Math.cos(a) * 9, Math.sin(a) * 9, 6, 3.4, a, Math.PI, Math.PI * 3); }
+      seg(0, 14, 2, 30, sd, 0.6);
+    } else if (wd === 3 && d.k === 3) {   // palette
+      ctx.moveTo(18, 0); ctx.ellipse(0, 0, 18, 13, 0, 0, Math.PI * 2);
+      for (const q of [[-8, -5], [0, -7], [8, -4], [-9, 4]]) { ctx.moveTo(q[0] + 2.6, q[1]); ctx.arc(q[0], q[1], 2.6, 0, Math.PI * 2); }
+    } else if (d.k === 0) { // noughts and crosses
+      seg(-6, -17, -6, 17, sd); seg(6, -17, 6, 17, sd + 1); seg(-17, -6, 17, -6, sd + 2); seg(-17, 6, 17, 6, sd + 3);
+      seg(-15, -15, -9, -9, sd + 4, 0.5); seg(-9, -15, -15, -9, sd + 5, 0.5);
+      ctx.moveTo(4, 0); ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      seg(9, 9, 15, 15, sd + 6, 0.5); seg(15, 9, 9, 15, sd + 7, 0.5);
+    } else if (d.k === 1) { // spiral
+      for (let a = 0; a < 16; a += 0.35) { const rr = 1 + a * 1.05; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+    } else if (d.k === 2) { // smiley
+      ctx.moveTo(15, 0); ctx.arc(0, 0, 15, 0, Math.PI * 2);
+      ctx.moveTo(-4, -5); ctx.arc(-5, -5, 1.2, 0, Math.PI * 2); ctx.moveTo(6, -5); ctx.arc(5, -5, 1.2, 0, Math.PI * 2);
+      ctx.moveTo(8, 4); ctx.arc(0, 3, 8, 0.15, Math.PI - 0.15);
+    } else if (d.k === 3) { // heart
+      ctx.moveTo(0, 13); ctx.bezierCurveTo(-22, -4, -9, -18, 0, -6); ctx.bezierCurveTo(9, -18, 22, -4, 0, 13);
+    } else if (d.k === 4) { // sun
+      ctx.moveTo(8, 0); ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; seg(Math.cos(a) * 11, Math.sin(a) * 11, Math.cos(a) * 17, Math.sin(a) * 17, sd + i, 0.6); }
+    } else { // cube
+      poly([[-14, -6], [4, -6], [4, 12], [-14, 12]], sd, 0.7, true);
+      poly([[-5, -14], [13, -14], [13, 4], [-5, 4]], sd + 9, 0.7, true);
+      seg(-14, -6, -5, -14, sd + 1, 0.4); seg(4, -6, 13, -14, sd + 2, 0.4); seg(4, 12, 13, 4, sd + 3, 0.4); seg(-14, 12, -5, 4, sd + 4, 0.4);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+
+  function drawTerrain(c0, c1, r0, r1) {
+    const tiles = L.tiles;
+    // graphite wash
+    ctx.fillStyle = C.pencil; ctx.globalAlpha = 0.09; ctx.beginPath();
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i]; if (t[0] < c0 || t[0] > c1 || t[1] < r0 || t[1] > r1) continue;
+      ctx.rect(t[0] * T, t[1] * T, T, T);
+    }
+    ctx.fill();
+    // hatching
+    ctx.globalAlpha = 0.32; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i]; if (t[0] < c0 || t[0] > c1 || t[1] < r0 || t[1] > r1) continue;
+      const x = t[0] * T, y = t[1] * T, sd = t[0] * 31 + t[1] * 57;
+      const ds = t[2] ? [T * 0.5, T, T * 1.5] : [T];
+      for (let k = 0; k < ds.length; k++) {
+        const d = ds[k] + (rnd(sd, k, 1) - 0.5) * 6;
+        const j1 = (rnd(sd, k, 2) - 0.5) * 3, j2 = (rnd(sd, k, 3) - 0.5) * 3;
+        if (d <= T) { ctx.moveTo(x + 2, y + d + j1); ctx.lineTo(x + d + j2, y + 2); }
+        else { ctx.moveTo(x + d - T + j1, y + T - 2); ctx.lineTo(x + T - 2, y + d - T + j2); }
+      }
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // outlines: vertices share their wobble so the line stays continuous
+    const vx = (c, r) => c * T + (rnd(c * 7 + 3, r * 13 + 1, boil * 5 + 1) - 0.5) * 2.4;
+    const vy = (c, r) => r * T + (rnd(c * 7 + 3, r * 13 + 1, boil * 5 + 2) - 0.5) * 2.4;
+    const run = (list, lw, alpha) => {
+      ctx.lineWidth = lw; ctx.globalAlpha = alpha; ctx.beginPath();
+      for (let i = 0; i < list.length; i++) {
+        const e = list[i]; if (e[2] < c0 || e[0] > c1 + 1 || e[3] < r0 || e[1] > r1 + 1) continue;
+        const x1 = vx(e[0], e[1]), y1 = vy(e[0], e[1]), x2 = vx(e[2], e[3]), y2 = vy(e[2], e[3]);
+        const sd = e[0] * 19 + e[1] * 43 + e[2] * 5 + e[3] * 3;
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo((x1 + x2) / 2 + jit(sd, 1, 1.3), (y1 + y2) / 2 + jit(sd, 2, 1.3), x2, y2);
+      }
+      ctx.stroke();
+    };
+    ctx.strokeStyle = C.pencil;
+    run(L.edges.side, 1.9, 0.85);
+    run(L.edges.top, 3, 1);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawObjects(c0, c1, r0, r1) {
+    const vis = (o) => o.c >= c0 - 1 && o.c <= c1 + 1 && o.r >= r0 - 1 && o.r <= r1 + 1;
+    let i, o, X, Y, sd;
+    // spikes — red pen
+    ctx.fillStyle = C.red; ctx.globalAlpha = 0.16; ctx.beginPath();
+    for (i = 0; i < L.spikes.length; i++) {
+      o = L.spikes[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T;
+      const b = o.up ? Y + T : Y, tp = o.up ? Y + 11 : Y + T - 11;
+      ctx.moveTo(X + 2, b); ctx.lineTo(X + 11, tp); ctx.lineTo(X + 20, b); ctx.lineTo(X + 29, tp); ctx.lineTo(X + 38, b); ctx.closePath();
+    }
+    ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.red; ctx.lineWidth = 2.3; ctx.beginPath();
+    for (i = 0; i < L.spikes.length; i++) {
+      o = L.spikes[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T; sd = o.c * 131 + o.r * 17;
+      const b = o.up ? Y + T - 1 : Y + 1, tp = o.up ? Y + 11 : Y + T - 11, m = o.up ? b - 5 : b + 5;
+      poly([[X + 2, b], [X + 11, tp], [X + 20, m], [X + 29, tp], [X + 38, b]], sd, 1.3);
+      seg(X + 9, o.up ? b - 6 : b + 6, X + 13, o.up ? tp + 9 : tp - 9, sd + 7, 0.8);
+      seg(X + 27, o.up ? b - 6 : b + 6, X + 31, o.up ? tp + 9 : tp - 9, sd + 8, 0.8);
+    }
+    ctx.stroke();
+
+    // springs and wall bouncers — green marker
+    ctx.strokeStyle = C.green; ctx.lineWidth = 2.2; ctx.beginPath();
+    const plates = [];
+    for (i = 0; i < L.springs.length; i++) {
+      o = L.springs[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T; sd = o.c * 71 + o.r * 29;
+      const age = clock - (pops[o.c + ',' + o.r] || -9), ext = age < 0.28 ? Math.sin(age / 0.28 * Math.PI) : 0;
+      const tp = Y + 26 - ext * 14, b = Y + T - 1, hgt = b - tp;
+      if (o.low) {   // folded corner of the page
+        const tipY = Y + 19 - ext * 11;
+        poly([[X + 4, b], [X + 36, b], [X + 36, tipY]], sd, 0.8, true);
+        seg(X + 14, b - 3, X + 33, tipY + 8, sd + 5, 0.6);
+        continue;
+      }
+      poly([[X + 12, b], [X + 29, b - hgt * 0.25], [X + 11, b - hgt * 0.5], [X + 29, b - hgt * 0.75], [X + 14, tp]], sd, 0.8);
+      plates.push([X + 4, tp, X + 36, tp, sd]);
+    }
+    for (i = 0; i < L.bouncers.length; i++) {
+      o = L.bouncers[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T; sd = o.c * 53 + o.r * 37;
+      const age = clock - (pops[o.c + ',' + o.r] || -9), ext = age < 0.22 ? Math.sin(age / 0.22 * Math.PI) : 0;
+      const wall = o.side > 0 ? X + T : X, px = wall - o.side * (11 - ext * 6), ch = wall - o.side * 22;
+      poly([[wall, Y + 9], [(wall + px) / 2, Y + 5], [(wall + px) / 2, Y + 13], [px, Y + 9]], sd, 0.5);
+      poly([[wall, Y + 31], [(wall + px) / 2, Y + 27], [(wall + px) / 2, Y + 35], [px, Y + 31]], sd + 3, 0.5);
+      poly([[ch + o.side * 5, Y + 13], [ch, Y + 20], [ch + o.side * 5, Y + 27]], sd + 5, 0.6);
+      plates.push([px, Y + 1, px, Y + T - 1, sd]);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 4.2; ctx.beginPath();
+    for (i = 0; i < plates.length; i++) seg(plates[i][0], plates[i][1], plates[i][2], plates[i][3], plates[i][4] + 11, 0.6);
+    ctx.stroke();
+
+    // gravity arrows and jump rings: green, like everything that moves you
+    ctx.strokeStyle = C.green; ctx.lineWidth = 3; ctx.beginPath();
+    for (i = 0; i < L.flips.length; i++) {
+      o = L.flips[i]; if (!vis(o)) continue; X = o.c * T + T / 2; Y = o.r * T; sd = o.c * 41 + o.r * 3;
+      const up = o.to < 0, tip = up ? Y + 5 : Y + T - 5, tail = up ? Y + T - 5 : Y + 5, kk = up ? 1 : -1;
+      seg(X, tail, X, tip, sd, 0.6);
+      poly([[X - 9, tip + kk * 11], [X, tip], [X + 9, tip + kk * 11]], sd + 2, 0.6);
+      poly([[X - 9, tip + kk * 21], [X, tip + kk * 10], [X + 9, tip + kk * 21]], sd + 4, 0.6);
+    }
+    for (i = 0; i < L.rings.length; i++) {
+      o = L.rings[i]; if (!vis(o)) continue; X = o.c * T + T / 2; Y = o.r * T + T / 2;
+      const age = clock - (pops[o.c + ',' + o.r] || -9), ext = age < 0.3 ? age / 0.3 : 0;
+      const rr = 13 + ext * 9 + (reduce ? 0 : Math.sin(clock * 5 + o.c));
+      ctx.moveTo(X + rr, Y); ctx.arc(X, Y, rr, 0, Math.PI * 2);
+      ctx.moveTo(X + 4, Y); ctx.arc(X, Y, 4, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    // one-way gates: green chevrons show the way through, the red edge is the side that bites
+    for (i = 0; i < L.gates.length; i++) {
+      o = L.gates[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T; sd = o.c * 29 + o.r * 7;
+      const bx = o.dir > 0 ? X + 25 : X + 15;
+      ctx.strokeStyle = C.red; ctx.lineWidth = 3.2; ctx.beginPath(); seg(bx, Y + 2, bx, Y + T - 1, sd, 0.6); ctx.stroke();
+      ctx.strokeStyle = C.green; ctx.lineWidth = 2.4; ctx.beginPath();
+      for (let k = 0; k < 2; k++) { const ax = (o.dir > 0 ? X + 3 : X + 37) + o.dir * k * 9; poly([[ax, Y + 10], [ax + o.dir * 8, Y + 20], [ax, Y + 30]], sd + k, 0.5); }
+      ctx.stroke();
+    }
+    // glue puddles
+    ctx.fillStyle = GLUE; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.2;
+    for (i = 0; i < L.glue.length; i++) {
+      o = L.glue[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T + T;
+      ctx.beginPath(); ctx.moveTo(X - 2, Y); ctx.bezierCurveTo(X + 4, Y - 9, X + 14, Y - 6, X + 20, Y - 8); ctx.bezierCurveTo(X + 28, Y - 10, X + 37, Y - 7, X + 42, Y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.save(); ctx.strokeStyle = PADC; ctx.lineWidth = 3; ctx.beginPath();
+    for (i = 0; i < L.pads.length; i++) {
+      o = L.pads[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T + T;
+      const sh = reduce ? 0.5 : (clock * 2.4) % 1;
+      for (let k = 0; k < 2; k++) { const xx = X + ((k + sh) / 2) * T; ctx.moveTo(xx - 6, Y - 15); ctx.lineTo(xx + 2, Y - 8); ctx.lineTo(xx - 6, Y - 1); }
+    }
+    ctx.stroke(); ctx.restore();
+    // buttons and doors
+    for (i = 0; i < L.buttons.length; i++) {
+      o = L.buttons[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T + T;
+      ctx.fillStyle = DOORC[o.bit]; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.6; ctx.beginPath();
+      if (s.btn & o.bit) ctx.rect(X + 8, Y - 6, 24, 4);
+      else { ctx.moveTo(X + 8, Y - 3); ctx.bezierCurveTo(X + 9, Y - 18, X + 31, Y - 18, X + 32, Y - 3); ctx.closePath(); }
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = C.pencil; ctx.fillRect(X + 4, Y - 3, 32, 3);
+    }
+    for (i = 0; i < L.doors.length; i++) {
+      o = L.doors[i]; if (!vis(o)) continue; X = o.c * T; Y = o.r * T;
+      const dc = DOORC[o.bit];
+      if (s.btn & o.bit) {
+        ctx.strokeStyle = dc; ctx.globalAlpha = 0.35; ctx.lineWidth = 1.4; ctx.setLineDash([4, 6]);
+        ctx.strokeRect(X + 2, Y + 2, T - 4, T - 4); ctx.setLineDash([]); ctx.globalAlpha = 1; continue;
+      }
+      ctx.fillStyle = dc; ctx.globalAlpha = 0.3; ctx.fillRect(X, Y, T, T); ctx.globalAlpha = 1;
+      ctx.strokeStyle = dc; ctx.lineWidth = 2.4; ctx.strokeRect(X + 1.5, Y + 1.5, T - 3, T - 3);
+      ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(X + 4, Y + 4); ctx.lineTo(X + T - 4, Y + T - 4); ctx.moveTo(X + T - 4, Y + 4); ctx.lineTo(X + 4, Y + T - 4); ctx.stroke();
+    }
+
+    // holes in the page: the sticker ring of a hole and the dashed ring of its exit share one color
+    const dots = (X, Y, k, col) => {
+      const n = (L.pair[k] || 0) % 3 + 1;
+      ctx.fillStyle = col; ctx.beginPath();
+      for (let d = 0; d < n; d++) { const dx = X + (d - (n - 1) / 2) * 7; ctx.moveTo(dx + 2.2, Y - 23); ctx.arc(dx, Y - 23, 2.2, 0, Math.PI * 2); }
+      ctx.fill();
+    };
+    for (i = 0; i < L.exits.length; i++) {
+      o = L.exits[i]; if (!vis(o)) continue; X = o.c * T + T / 2; Y = o.r * T + T / 2;
+      const col = pairColor(o.k);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.13; ctx.beginPath(); ctx.arc(X, Y, 14, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.arc(X, Y, 14, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(X, Y, 2.6, 0, Math.PI * 2); ctx.fill();
+      dots(X, Y, o.k, col);
+    }
+    for (i = 0; i < L.teleIn.length; i++) {
+      o = L.teleIn[i]; if (!vis(o)) continue; X = o.c * T + T / 2; Y = o.r * T + T / 2; sd = o.c * 23 + o.r * 61;
+      const col = pairColor(o.k), rx = X + jit(sd, 1, 0.5), ry = Y + jit(sd, 2, 0.5);
+      ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(rx, ry, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col; ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = C.hole; ctx.beginPath(); ctx.arc(X, Y, 9.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.4; ctx.beginPath();
+      const a = reduce ? 0.6 : clock * 3 + o.c;
+      ctx.arc(X, Y, 6, a, a + 1.9); ctx.moveTo(X + Math.cos(a + 3.1) * 3, Y + Math.sin(a + 3.1) * 3); ctx.arc(X, Y, 3, a + 3.1, a + 5);
+      ctx.stroke(); ctx.globalAlpha = 1;
+      dots(X, Y, o.k, col);
+    }
+
+    // stars to collect: small gold stickers (the big star is the finish)
+    for (i = 0; i < L.stars.length; i++) {
+      o = L.stars[i]; if ((s.got >> i) & 1 || !vis(o)) continue;
+      const sb = reduce ? 0 : Math.sin(clock * 3.4 + i * 1.9) * 2, sr = reduce ? 0 : Math.sin(clock * 2.1 + i) * 0.18;
+      X = o.c * T + T / 2; Y = o.r * T + T / 2 + sb;
+      ctx.save();
+      ctx.strokeStyle = GOLD; ctx.lineWidth = 1.3; ctx.globalAlpha = 0.55; ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.arc(X, Y, 14, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.fillStyle = GOLD; ctx.beginPath();
+      for (let q = 0; q < 10; q++) { const rr = q % 2 ? 4.4 : 10, a = sr - Math.PI / 2 + q * Math.PI / 5; if (q === 0) ctx.moveTo(X + Math.cos(a) * rr, Y + Math.sin(a) * rr); else ctx.lineTo(X + Math.cos(a) * rr, Y + Math.sin(a) * rr); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C.paper; ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(X - 2.5, Y - 3, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    // the star at the end
+    if (L.finish && vis(L.finish)) {
+      const bob = reduce ? 0 : Math.sin(clock * 3) * 2.5;
+      X = L.finish.c * T + T / 2; Y = L.finish.r * T + T / 2 - 1 + bob;
+      const rot = reduce ? 0 : Math.sin(clock * 1.7) * 0.12;
+      const k = s.won ? Math.max(0, 1 - (0.7 - Math.max(0, wonT)) * 2.4) : 1;
+      ctx.beginPath();
+      for (let p = 0; p < 10; p++) {
+        const rr = (p % 2 ? 7.5 : 17) * k, a = rot - Math.PI / 2 + p * Math.PI / 5;
+        const px = X + Math.cos(a) * rr, py = Y + Math.sin(a) * rr;
+        if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = C.star; ctx.fill();
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2.2; ctx.stroke();
+    }
+  }
+
+  function drawZones() {
+    for (let i = 0; i < L.zones.length; i++) {
+      const z = L.zones[i];
+      if (z.x1 < cam.x - 40 || z.x0 > cam.x + W / S + 40) continue;
+      ctx.fillStyle = C.green; ctx.globalAlpha = 0.26; ctx.fillRect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0);
+      ctx.strokeStyle = C.green; ctx.globalAlpha = 0.2; ctx.lineWidth = 7; ctx.beginPath();
+      for (let y = z.y0 + 9; y < z.y1; y += 18) { ctx.moveTo(z.x0 + 4 + rnd(y, 1, 2) * 8, y); ctx.lineTo(z.x1 - 4 - rnd(y, 2, 2) * 8, y + (rnd(y, 3, 2) - 0.5) * 3); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+
+  /* everything that moves on its own: positions come from the engine's tick count */
+  const INK = '#7a4dff';
+  function drawDrip(m, sy) {
+    const cx = m.x + m.w / 2;
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(cx, m.y - 10, 16, 8, 0, 0, Math.PI * 2); ctx.fill();   // the blot it drips from
+    if (sy - m.y < 4) { ctx.beginPath(); ctx.ellipse(cx, m.y - 1, 5, 7, 0, 0, Math.PI * 2); ctx.fill(); return; }
+    ctx.globalAlpha = 0.4; ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, m.y - 4); ctx.lineTo(cx, sy); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(cx, sy); ctx.bezierCurveTo(cx + 9, sy + 12, cx + 9, sy + 22, cx, sy + 22); ctx.bezierCurveTo(cx - 9, sy + 22, cx - 9, sy + 12, cx, sy); ctx.fill();
+  }
+  // bosses: a giant eraser or a spreading ink blot behind you, or a pendulum that flips gravity
+  function drawBossBack(vw, vh) {
+    if (L.boss !== 'pendulum') return;
+    const th = 0.85 * Math.cos(Math.PI * (s.t % (L.flipEvery * 2)) / L.flipEvery);
+    const px = cam.x + vw / 2, py = cam.y - 30, len = vh * 0.62;
+    const bx = px + Math.sin(th) * len, by = py + Math.cos(th) * len;
+    ctx.globalAlpha = 0.5; ctx.strokeStyle = C.pencil; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.fillStyle = C.paper; ctx.strokeStyle = C.green; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(bx, by, 30, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.green; ctx.font = '38px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.g > 0 ? 'g↓' : 'g↑', bx, by + 2); ctx.globalAlpha = 1;
+  }
+  function drawBossFront(vw, vh) {
+    if (!L.chase) return;
+    const x = E.chaseX(L, s.t), top = cam.y - 40, bot = cam.y + vh + 40;
+    if (x < cam.x - 120) return;
+    if (L.boss === 'eraser') {
+      ctx.fillStyle = C.paper; ctx.fillRect(cam.x - 40, top, x - cam.x + 40, bot - top);   // the page is erased behind it
+      ctx.fillStyle = C.rule; ctx.globalAlpha = 0.5;
+      for (let i = 0; i < 14; i++) { const cy = top + rnd(i, Math.floor(s.t / 6), 4) * (bot - top), cx = x - 10 - rnd(i, Math.floor(s.t / 6), 5) * 60; ctx.fillRect(cx, cy, 4, 3); }
+      ctx.globalAlpha = 1;
+      // a big pink eraser scrubbing up and down the page: beveled block, top face, rub crumbs
+      const ey = cam.y + vh * (0.5 + 0.3 * Math.sin(s.t / 11)), sd = Math.floor(s.t / 8) * 7;
+      ctx.save(); ctx.translate(x - 20, ey); ctx.rotate(-0.35 + Math.sin(s.t / 11) * 0.08);
+      const W2 = 84, H2 = 34, B = 16, D = 20;      // half width, half height, bevel, top-face depth
+      const front = [[-W2 + B, -H2], [W2, -H2], [W2 - B, H2], [-W2, H2]];
+      const lid = [[-W2 + B, -H2], [-W2 + B + D, -H2 - D], [W2 + D, -H2 - D], [W2, -H2]];
+      const side = [[W2, -H2], [W2 + D, -H2 - D], [W2 - B + D, H2 - D], [W2 - B, H2]];
+      ctx.fillStyle = C.paper;
+      for (const f of [front, lid, side]) { ctx.beginPath(); poly(f, 0, 0, true); ctx.fill(); }
+      ctx.fillStyle = 'rgba(255, 111, 168, 0.28)'; ctx.beginPath(); poly(front, 0, 0, true); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 111, 168, 0.5)'; ctx.beginPath(); poly(lid, 0, 0, true); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 111, 168, 0.14)'; ctx.beginPath(); poly(side, 0, 0, true); ctx.fill();
+      // the classic two-tone eraser: the right third is the blue ink end
+      const sx = W2 * 0.25;
+      ctx.fillStyle = 'rgba(62, 160, 255, 0.45)'; ctx.beginPath(); poly([[sx + B * 0.5, -H2], [W2, -H2], [W2 - B, H2], [sx - B * 0.5, H2]], 0, 0, true); ctx.fill();
+      ctx.fillStyle = 'rgba(62, 160, 255, 0.65)'; ctx.beginPath(); poly([[sx + B * 0.5, -H2], [sx + B * 0.5 + D, -H2 - D], [W2 + D, -H2 - D], [W2, -H2]], 0, 0, true); ctx.fill();
+      ctx.fillStyle = 'rgba(62, 160, 255, 0.3)'; ctx.beginPath(); poly(side, 0, 0, true); ctx.fill();
+      ctx.save(); ctx.beginPath(); poly(front, 0, 0, true); ctx.clip();   // pencil hatching on the front face
+      ctx.strokeStyle = '#ff6fa8'; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (let k = -W2 - 40; k < W2 + 40; k += 9) { ctx.moveTo(k, H2); ctx.lineTo(k + 30, -H2); }
+      ctx.stroke(); ctx.restore(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#ff6fa8'; ctx.lineWidth = 2.6; ctx.beginPath();
+      poly(front, sd, 1.3, true); poly(lid, sd + 9, 1.1, true); ctx.stroke();
+      ctx.strokeStyle = '#3ea0ff'; ctx.beginPath(); poly(side, sd + 17, 1.1, true);
+      seg(sx + B * 0.5, -H2, sx - B * 0.5, H2, sd + 21, 0.8); seg(sx + B * 0.5, -H2, sx + B * 0.5 + D, -H2 - D, sd + 22, 0.6); ctx.stroke();
+      // the worn, dirty rubbing edge
+      ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.6; ctx.lineWidth = 3; ctx.beginPath(); seg(-W2, H2 - 1, -W2 + B - 2, -H2 + 3, sd + 30, 1); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.restore();
+      // grey smudges where it rubbed
+      ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.06; ctx.lineWidth = 12; ctx.beginPath();
+      for (let i = 0; i < 6; i++) { const yy = cam.y + vh * (0.25 + i * 0.11), xx = x - 60 - rnd(i, 3, 1) * 140; ctx.moveTo(xx, yy); ctx.quadraticCurveTo(xx + 50, yy - 18, xx + 110, yy + 6); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      // crumbs rubbed off the page
+      ctx.strokeStyle = '#ff9cc4'; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.8; ctx.beginPath();
+      for (let i = 0; i < 9; i++) {
+        const k = (s.t + i * 23) % 70, cx2 = x - 70 + rnd(i, 1, 3) * 50 - k * 0.3, cy2 = ey + 24 + k * 1.6 + rnd(i, 2, 3) * 10;
+        ctx.moveTo(cx2, cy2); ctx.quadraticCurveTo(cx2 + 3, cy2 - 3, cx2 + 6, cy2 + 1);
+      }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(cam.x - 40, top);
+      for (let y = top; y <= bot; y += 20) ctx.lineTo(x + Math.sin(y / 23 + s.t / 14) * 14 + Math.sin(y / 61 - s.t / 25) * 22, y);
+      ctx.lineTo(cam.x - 40, bot); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.35; ctx.beginPath();
+      for (let y = top; y <= bot; y += 20) ctx.lineTo(x + 26 + Math.sin(y / 17 + s.t / 10) * 18, y);
+      ctx.lineTo(cam.x - 40, bot); ctx.lineTo(cam.x - 40, top); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
+  function drawMovers() {
+    const x0 = cam.x - 140, x1 = cam.x + W / S + 140, t = s.t;
+    let i;
+    for (i = 0; i < L.plats.length; i++) {
+      const p = L.plats[i], px = E.platX(p, t), py = E.platY(p, t);
+      if (px + p.w < x0 || px > x1) continue;
+      if (p.van) {
+        const touched = s.van[i] >= 0, age = touched ? (t - s.van[i]) / CFG.vanish : 0;
+        if (age > 1) {   // erased: only rubber crumbs are left
+          ctx.fillStyle = C.pencil; ctx.globalAlpha = 0.22; ctx.beginPath();
+          for (let k = 0; k < p.w / 14; k++) { const cx = px + 6 + k * 14 + rnd(i, k, 4) * 6, cy = py + 3 + rnd(i, k, 5) * 5; ctx.moveTo(cx + 1.3, cy); ctx.arc(cx, cy, 1.3, 0, Math.PI * 2); }
+          ctx.fill(); ctx.globalAlpha = 1; continue;
+        }
+        ctx.strokeStyle = C.pencil; ctx.globalAlpha = touched ? 1 - age * 0.75 : 1;
+        if (touched) ctx.setLineDash([9, 5 + age * 10]);
+        ctx.lineWidth = 3.4; ctx.beginPath(); seg(px + 1, py + 2, px + p.w - 1, py + 2, i * 7 + 500, 1); ctx.stroke();
+        ctx.lineWidth = 1.2; ctx.beginPath(); seg(px + 3, py + 6.5, px + p.w - 3, py + 6.5, i * 7 + 501, 1); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      } else {         // ruler
+        ctx.fillStyle = RULER; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.rect(px, py, p.w, 10); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 1; ctx.beginPath();
+        for (let x = 6; x < p.w; x += 8) { ctx.moveTo(px + x, py); ctx.lineTo(px + x, py + ((x - 6) % 40 === 0 ? 6 : 3.5)); }
+        ctx.stroke();
+      }
+    }
+    const seen = {};
+    for (i = 0; i < L.arms.length; i++) {
+      const a = L.arms[i]; if (a.px + a.len < x0 || a.px - a.len > x1) continue;
+      const th = E.armAngle(a, t), sn = Math.sin(th), cs = Math.cos(th), tx = a.px + sn * a.len, ty = a.py - cs * a.len;
+      if (a.kind === 'spin') {   // the circle the compass is drawing
+        ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.28; ctx.lineWidth = 1.2; ctx.setLineDash([4, 6]);
+        ctx.beginPath(); ctx.arc(a.px, a.py, a.len, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      }
+      ctx.strokeStyle = C.pencil; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.px, a.py); ctx.lineTo(a.px + sn * a.len * 0.22, a.py - cs * a.len * 0.22); ctx.stroke();
+      ctx.strokeStyle = C.red; ctx.lineWidth = 3.2;
+      ctx.beginPath(); ctx.moveTo(a.px + sn * a.len * 0.22, a.py - cs * a.len * 0.22); ctx.lineTo(tx, ty); ctx.stroke();
+      if (a.kind === 'spin') { ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(tx, ty, 4.5, 0, Math.PI * 2); ctx.fill(); }
+      if (!seen[a.group]) {
+        seen[a.group] = 1; ctx.fillStyle = C.paper; ctx.strokeStyle = C.pencil; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(a.px, a.py, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
+    for (i = 0; i < L.staplers.length; i++) {
+      const m = L.staplers[i]; if (m.x + m.w < x0 || m.x > x1) continue;
+      if (m.drip) { drawDrip(m, E.staplerY(m, t)); continue; }
+      const sy = E.staplerY(m, t), n = Math.max(2, Math.floor((m.w - 10) / 9));
+      ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.4; ctx.lineWidth = 1.3; ctx.beginPath();
+      ctx.moveTo(m.x + 10, m.y - 14); ctx.lineTo(m.x + 10, sy); ctx.moveTo(m.x + m.w - 10, m.y - 14); ctx.lineTo(m.x + m.w - 10, sy);
+      ctx.moveTo(m.x + 2, m.y - 14); ctx.lineTo(m.x + m.w - 2, m.y - 14); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.pencil; ctx.fillRect(m.x + 3, sy, m.w - 6, m.h - 6);
+      ctx.strokeStyle = C.red; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(m.x + 5, sy + m.h - 6);
+      for (let k = 1; k <= n; k++) ctx.lineTo(m.x + 5 + k * ((m.w - 10) / n), sy + m.h - (k % 2 ? 0 : 6));
+      ctx.stroke();
+    }
+  }
+
+  function drawLabels() {
+    ctx.fillStyle = C.pencil; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    try { ctx.direction = 'ltr'; } catch (e) { /* ignore */ }
+    ctx.font = '27px ' + FONT;
+    for (let i = 0; i < L.labels.length; i++) {
+      const l = L.labels[i], txt = L.texts[l.k]; if (!txt) continue;
+      const x = l.c * T + T / 2, y = l.r * T + T / 2;
+      if (x < cam.x - 400 || x > cam.x + W / S + 400) continue;
+      ctx.save(); ctx.translate(x, y); ctx.rotate((rnd(l.c, l.r, 3) - 0.5) * 0.07);
+      ctx.fillText(txt, 0, 0);
+      const w = ctx.measureText(txt).width;
+      ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.6; ctx.beginPath();
+      seg(-w / 2 - 4, 19, w / 2 + 4, 21, l.c * 5 + l.r, 1.6); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  function drawStains() {
+    const list = stains[idx];
+    ctx.fillStyle = PEN;
+    for (let i = 0; i < list.length; i++) {
+      const st = list[i];
+      if (st.x < cam.x - 60 || st.x > cam.x + W / S + 60) continue;
+      ctx.globalAlpha = 0.5; ctx.beginPath();
+      for (let k = 0; k < st.blobs.length; k++) { const b = st.blobs[k]; ctx.moveTo(st.x + b[0] + b[2], st.y + b[1]); ctx.arc(st.x + b[0], st.y + b[1], b[2], 0, Math.PI * 2); }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHat(hat, hx, hy, d) {
+    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    if (hat === 'cap') {
+      ctx.fillStyle = PEN; ctx.beginPath(); ctx.arc(hx, hy - 1.5, 6.8, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = PEN; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(hx, hy - 1.8); ctx.lineTo(hx + d * 11, hy - 0.8); ctx.stroke();
+    } else if (hat === 'shades') {
+      ctx.fillStyle = '#000'; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.rect(Math.min(hx - d * 1.5, hx + d * 6.5), hy - 3, 8, 3.4); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx - d * 1.5, hy - 2.2); ctx.lineTo(hx - d * 6.2, hy - 1.2); ctx.stroke();
+    } else if (hat === 'horns') {
+      ctx.fillStyle = C.red;
+      for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(hx + sg * 2, hy - 5.6); ctx.quadraticCurveTo(hx + sg * 7, hy - 8, hx + sg * 6.5, hy - 13); ctx.lineTo(hx + sg * 5.5, hy - 4); ctx.closePath(); ctx.fill(); }
+    } else if (hat === 'crown') {
+      ctx.fillStyle = '#ffe14a'; ctx.beginPath(); ctx.moveTo(hx - 6.5, hy - 4.5);
+      ctx.lineTo(hx - 7, hy - 12); ctx.lineTo(hx - 3.2, hy - 8); ctx.lineTo(hx, hy - 13.5); ctx.lineTo(hx + 3.2, hy - 8); ctx.lineTo(hx + 7, hy - 12); ctx.lineTo(hx + 6.5, hy - 4.5);
+      ctx.closePath(); ctx.fill();
+    } else if (hat === 'antenna') {
+      ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(hx, hy - 6); ctx.quadraticCurveTo(hx - d * 3, hy - 11, hx - d * 1, hy - 15); ctx.stroke();
+      ctx.fillStyle = C.green; ctx.beginPath(); ctx.arc(hx - d * 1, hy - 16, 2.6, 0, Math.PI * 2); ctx.fill();
+    } else if (hat === 'tophat') {
+      ctx.fillStyle = '#1a1d29'; ctx.strokeStyle = C.pencil; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.rect(hx - 5, hy - 15, 10, 10); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx - 9, hy - 5); ctx.lineTo(hx + 9, hy - 5); ctx.stroke();
+      ctx.fillStyle = PEN; ctx.fillRect(hx - 5, hy - 8.5, 10, 2.2);
+    } else if (hat === 'halo') {
+      ctx.strokeStyle = '#ffe14a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(hx, hy - 12, 7, 2.3, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  function drawPlayer(o) {
+    const main = !o && sq !== 0;
+    o = o || { x: s.x, y: s.y, dir: s.dir, g: s.g, grounded: s.grounded, vy: s.vy, phase: runPhase };
+    const d = o.dir, cx = o.x + CFG.pw / 2, top = o.y, sd = 9001, flipped = o.g < 0;
+    if (flipped) { ctx.save(); ctx.translate(0, 2 * o.y + CFG.ph); ctx.scale(1, -1); }
+    if (main) { const fy = top + CFG.ph; ctx.save(); ctx.translate(cx, fy); ctx.scale(1 - sq * 0.22, 1 + sq * 0.28); ctx.translate(-cx, -fy); }
+    const lean = d * 2.2, headY = top + 6, sh = top + 15, hip = top + 23;
+    let l1, l2, a1, a2, legLen = 11;
+    if (o.grounded) {
+      const a = Math.sin(o.phase) * 0.95;
+      l1 = a; l2 = -a; a1 = -a * 0.9; a2 = a * 0.9;
+    } else if (o.vy * o.g < 0) { l1 = 0.95; l2 = -0.45; a1 = 2.5; a2 = -2.3; legLen = 10; }
+    else { l1 = 0.6; l2 = -0.6; a1 = 2.05; a2 = -2.05; }
+    ctx.strokeStyle = PEN; ctx.lineWidth = 2.9; ctx.lineCap = 'round';
+    ctx.beginPath();
+    seg(cx + lean, sh - 3, cx, hip, sd, 0.4);
+    seg(cx, hip, cx + Math.sin(l1) * legLen * d, hip + Math.cos(l1) * legLen, sd + 1, 0.4);
+    seg(cx, hip, cx + Math.sin(l2) * legLen * d, hip + Math.cos(l2) * legLen, sd + 2, 0.4);
+    const ax = cx + lean * 0.7, ay = sh;
+    seg(ax, ay, ax + Math.sin(a1) * 9 * d, ay + Math.cos(a1) * 9, sd + 3, 0.4);
+    seg(ax, ay, ax + Math.sin(a2) * 9 * d, ay + Math.cos(a2) * 9, sd + 4, 0.4);
+    ctx.stroke();
+    const hx = cx + lean + jit(sd, 9, 0.3), hy = headY + jit(sd, 10, 0.3);
+    ctx.fillStyle = C.paper; ctx.beginPath();
+    ctx.arc(hx, hy, 6.2, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = PEN; ctx.beginPath(); ctx.arc(cx + lean + d * 2.6, headY - 0.6, 1.15, 0, Math.PI * 2); ctx.fill();
+    drawHat(o.hat || store.skin.hat, hx, hy, d);
+    if (main) ctx.restore();
+    if (flipped) ctx.restore();
+  }
+  // a doodle on its own little canvas (skin picker)
+  function doodleIcon(cv, hat, pen, run, sc) {
+    sc = sc || 1.05;
+    const r = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth || 56, h = cv.clientHeight || 56;
+    cv.width = w * r; cv.height = h * r;
+    const keep = ctx, keepPen = PEN; ctx = cv.getContext('2d'); PEN = pen;
+    ctx.setTransform(r * sc, 0, 0, r * sc, 0, 0);
+    drawPlayer({ x: w / sc / 2 - CFG.pw / 2, y: h / sc - CFG.ph - 3, dir: 1, g: 1, grounded: true, vy: 0, phase: run || 0.7, hat: hat });
+    ctx = keep; PEN = keepPen;
+  }
+
+
+  function draw(dt) {
+    const vw = W / S, vh = H / S;
+    drawPaper(vw, vh);
+    drawZones();
+    const c0 = Math.floor(cam.x / T) - 1, c1 = Math.floor((cam.x + vw) / T) + 1;
+    const r0 = Math.floor(cam.y / T) - 1, r1 = Math.floor((cam.y + vh) / T) + 1;
+    // doodles
+    ctx.strokeStyle = C.pencil; ctx.globalAlpha = 0.09;
+    for (let i = 0; i < L.doodles.length; i++) { const d = L.doodles[i]; if (d.c >= c0 - 6 && d.c <= c1 + 6) drawDoodle(d); }
+    ctx.globalAlpha = 1;
+    drawBossBack(vw, vh);
+    drawStains();
+    drawTerrain(c0, c1, r0, r1);
+    drawLabels();
+    drawObjects(c0, c1, r0, r1);
+    drawMovers();
+    // teleport zip line
+    for (let i = zips.length - 1; i >= 0; i--) {
+      const z = zips[i]; z.t += dt; if (z.t > 0.45) { zips.splice(i, 1); continue; }
+      ctx.strokeStyle = z.col; ctx.globalAlpha = 0.7 * (1 - z.t / 0.45); ctx.lineWidth = 2.2; ctx.setLineDash([7, 8]);
+      ctx.beginPath(); ctx.moveTo(z.fx, z.fy); ctx.lineTo(z.tx, z.ty); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    // glue strands: stretch from the puddle to the feet, then snap into drops
+    for (let i = goo.length - 1; i >= 0; i--) {
+      const q = goo[i]; q.t += dt;
+      const fx = s.x + CFG.pw / 2, fy = q.up ? s.y : s.y + CFG.ph;
+      if (q.t > 0.2 || s.dead) {
+        for (let k = 0; k < 6; k++) parts.push({ x: q.x + (fx - q.x) * Math.random(), y: q.y + (fy - q.y) * Math.random(), vx: (Math.random() - 0.5) * 120, vy: (q.up ? -1 : 1) * 40, r: 1.5 + Math.random() * 1.8, life: 0.45, col: GLUE });
+        goo.splice(i, 1); continue;
+      }
+      const k1 = q.t / 0.2;
+      ctx.strokeStyle = GLUE; ctx.globalAlpha = 1 - k1 * 0.4;
+      for (let k = 0; k < q.n; k++) {
+        const off = (k - (q.n - 1) / 2) * 6, bx = q.x - 10 + off * 1.6, tx = fx + off * 0.5;
+        const mx = (bx + tx) / 2 + Math.sin(q.sd + k * 2.3) * 5, my = (q.y + fy) / 2;
+        ctx.lineWidth = Math.max(0.6, 3.2 * (1 - k1) - k * 0.3);
+        ctx.beginPath(); ctx.moveTo(bx, q.y); ctx.quadraticCurveTo(mx, my, tx, fy); ctx.stroke();
+      }
+      ctx.fillStyle = GLUE; ctx.beginPath(); ctx.ellipse(fx, fy, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // pen trail
+    if (trail.length > 2 && !s.dead) {
+      ctx.strokeStyle = PEN; ctx.lineWidth = 1.3;
+      for (let i = 1; i < trail.length; i++) {
+        ctx.globalAlpha = 0.22 * i / trail.length;
+        ctx.beginPath(); ctx.moveTo(trail[i - 1][0], trail[i - 1][1]); ctx.lineTo(trail[i][0], trail[i][1]); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    drawBossFront(vw, vh);
+    if (s.boost > 0 && !s.dead) {
+      ctx.strokeStyle = PADC; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.beginPath();
+      for (let k = 0; k < 4; k++) {
+        const yy = s.y + 5 + k * 8, len = 12 + rnd(k, Math.floor(clock * 20), 3) * 24, bx = s.dir > 0 ? s.x - 6 : s.x + CFG.pw + 6;
+        ctx.moveTo(bx, yy); ctx.lineTo(bx - s.dir * len, yy);
+      }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    sq *= Math.exp(-dt * 11); if (Math.abs(sq) < 0.02) sq = 0;
+    for (let i = floats.length - 1; i >= 0; i--) {
+      const q = floats[i]; q.t += dt;
+      if (q.t > 0.75) { floats.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, (0.75 - q.t) * 4); ctx.fillStyle = q.col;
+      ctx.font = (q.big ? 22 + q.big * 3 : 20) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(q.text, q.x, q.y - q.t * 46); ctx.globalAlpha = 1;
+    }
+    if (!s.dead && !(s.won && wonT < 0.45)) drawPlayer();
+    // ink drops
+    ctx.fillStyle = C.ink;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.fillStyle = p.col || PEN; ctx.globalAlpha = Math.min(1, p.life * 3); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------- loop ---------- */
+  function frame(now) {
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000) || 0); last = now;
+    clock += dt;
+    if (!reduce) boil = Math.floor(clock * 6);
+    if (screen === 'play') {
+      acc += dt * (slowT > 0 ? 0.4 : 1); if (slowT > 0) slowT -= dt;
+      let guard = 0;
+      while (acc >= CFG.dt && guard++ < 24) { tick(); acc -= CFG.dt; }
+      if (acc > CFG.dt) acc = 0;
+      if (s.won && wonT >= 0) { wonT -= dt; if (wonT <= 0) { wonT = -1; finishLevel(); } }
+    }
+    if (screen !== 'menu') {
+      // pull the camera back a little on a speed burst or a big jump
+      const zt = reduce || screen !== 'play' || s.dead ? 1 : s.boost > 0 ? 0.9 : (!s.grounded && Math.abs(s.y + CFG.ph - cam.focusY) > 2.4 * T ? 0.94 : 1);
+      zoom += (zt - zoom) * (1 - Math.exp(-dt * 2.2)); S = S0 * zoom;
+      const t = camTarget();
+      const kx = cam.boost > 0 ? 16 : 6, ky = cam.boost > 0 ? 16 : 5;
+      cam.x += (t[0] - cam.x) * (1 - Math.exp(-dt * kx));
+      cam.y += (t[1] - cam.y) * (1 - Math.exp(-dt * ky));
+      if (cam.boost > 0) cam.boost -= dt;
+      if (cam.shake > 0) cam.shake -= dt;
+    }
+    draw(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- input ---------- */
+  function press(on) { if (screen === 'play') { if (on) { audio(); queued = true; } pressed = on; } else { pressed = false; queued = false; } }
+  stage.addEventListener('pointerdown', (e) => {
+    if (screen !== 'play' || (e.target && e.target.closest && e.target.closest('button,label,input'))) return;
+    e.preventDefault(); press(true);
+  });
+  window.addEventListener('pointerup', () => press(false));
+  window.addEventListener('pointercancel', () => press(false));
+  window.addEventListener('blur', () => press(false));
+  stage.addEventListener('contextmenu', (e) => { if (screen === 'play') e.preventDefault(); });
+  const JUMP_KEYS = { Space: 1, ArrowUp: 1, KeyW: 1, KeyX: 1 };
+  window.addEventListener('keydown', (e) => {
+    if (screen === 'play') {
+      if (JUMP_KEYS[e.code]) { e.preventDefault(); if (!e.repeat) press(true); }
+      else if (e.code === 'Escape') showMenu();
+      else if (e.code === 'KeyR') { respawn(); }
+    } else if (screen === 'won' && e.code === 'Escape') showMenu();
+  });
+  window.addEventListener('keyup', (e) => { if (JUMP_KEYS[e.code]) press(false); });
+
+  $('btn-menu').addEventListener('click', () => showMenu());
+  $('menu-back').addEventListener('click', () => { menuWorld = -1; buildMenu(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { inZone = false; underwater(false); } });
+  $('btn-endless').addEventListener('click', () => { audio(); startEndless(); });
+  $('btn-skins').addEventListener('click', () => { audio(); menuWorld = -2; buildMenu(); });
+  $('btn-next').addEventListener('click', () => { if (tooSoon()) return; audio(); if (endless) { startEndless(); return; } if (idx === WORLDS[wOf(idx)][WORLDS[wOf(idx)].length - 1] || (!OPEN_ALL && LEVELS[idx + 1].boss && passed(wOf(idx)) < 19)) showMenu(); else startLevel(idx + 1); });
+  $('btn-again').addEventListener('click', () => { if (tooSoon()) return; audio(); startLevel(idx); });
+  $('btn-list').addEventListener('click', () => { if (!tooSoon()) showMenu(); });
+  $('sound').addEventListener('change', (e) => { store.muted = !e.target.checked; save(); if (!store.muted) sfx.jump(); else { inZone = false; underwater(false); } });
+  $('music').addEventListener('change', (e) => { store.music = e.target.checked; save(); });
+  $('dark').addEventListener('change', (e) => {
+    DARK = e.target.checked; store.dark = DARK; save();
+    document.documentElement.dataset.theme = DARK ? 'dark' : 'light';
+    readColors(); themeColors(); PENS[0].col = C.ink; applySkin(); buildMenu();
+  });
+
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+
+  /* ---------- boot (keeps your place across a republish) ---------- */
+  function start(data) {
+    resize();
+    LEVELS.forEach(prep);
+    if (document.fonts && document.fonts.load) { try { document.fonts.load('27px ' + FONT, 'tap').catch(function () {}); } catch (e) { /* ignore */ } }
+    const firstOpen = LEVELS.findIndex((lv) => !store.done[lv.id]);
+    idx = firstOpen < 0 ? 0 : firstOpen; L = LEVELS[idx]; s = E.newState(L); camSnap();
+    if (data && data.screen === 'play' && typeof data.level === 'number') startLevel(data.level);
+    else showMenu(-1);
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) { try { hot.snapshot(() => ({ screen: screen === 'menu' ? 'menu' : 'play', level: idx })); } catch (e) { /* ignore */ } }
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+
+</script>
+</body>
+</html>
